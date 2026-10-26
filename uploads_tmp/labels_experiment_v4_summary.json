@@ -1,0 +1,49 @@
+{
+  "ulasan_awal": 109778,
+  "ulasan_valid": 98962,
+  "label_setelah_preprocessing": 241350,
+  "jumlah_review_berlabel": 85471,
+  "jumlah_kafe": 323,
+  "distribusi_aspek": {
+    "suasana": 86073,
+    "makanan_minuman": 78683,
+    "pelayanan": 27716,
+    "fasilitas_wfc": 19958,
+    "harga": 19955,
+    "kebersihan": 8965
+  },
+  "distribusi_sentimen": {
+    "positif": 190181,
+    "netral": 30973,
+    "negatif": 20196
+  },
+  "subkalimat_multi_aspek": 24501,
+  "metrics_alpha_2_min_df_1": {
+    "accuracy": 0.6490771752298155,
+    "macro_f1": 0.581141021160576,
+    "weighted_f1": 0.6805526082623621,
+    "per_class": {
+      "negatif": {
+        "precision": 0.42608975390059517,
+        "recall": 0.7890974084003575,
+        "f1": 0.5533737204930019,
+        "support": 3357
+      },
+      "netral": {
+        "precision": 0.3370936438622028,
+        "recall": 0.5880236986881083,
+        "f1": 0.4285273708558211,
+        "support": 4726
+      },
+      "positif": {
+        "precision": 0.9400220507166482,
+        "recall": 0.6399939948956613,
+        "f1": 0.7615219721329046,
+        "support": 19983
+      }
+    },
+    "jumlah_label_training": 192786,
+    "jumlah_label_testing": 28066,
+    "baris_testing_dikeluarkan_teks_identik": 20347
+  }
+}

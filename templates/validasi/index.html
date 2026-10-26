@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Validasi labeling — Nafinder{% endblock %}
+{% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Pemeriksaan manual</p>
+  <h1>Validasi labeling</h1>
+  <p class="lede">Periksa sampel label satu per satu tanpa mengubah label asli dari pipeline</p>
+</header>
+
+{% if not sample_total %}
+<section class="card validation-start">
+  <div>
+    <p class="eyebrow">Sampel belum dibuat</p>
+    <h2>Mulai checklist 100 label</h2>
+    <p class="muted">Program memilih label secara acak dan menyimpannya sebagai batch validasi</p>
+  </div>
+  <form method="post" action="{{ url_for('validasi.start') }}">
+    <input type="hidden" name="size" value="100">
+    <button class="button button-primary" type="submit">Mulai 100 label</button>
+  </form>
+</section>
+{% else %}
+<section class="validation-summary">
+  <div><span>Target sampel</span><strong>{{ "{:,}".format(sample_total) }}</strong></div>
+  <div><span>Sudah diperiksa</span><strong>{{ "{:,}".format(checked) }}</strong></div>
+  <div><span>Benar</span><strong>{{ "{:,}".format(counts.benar) }}</strong></div>
+  <div><span>Salah</span><strong>{{ "{:,}".format(counts.salah) }}</strong></div>
+  <div><span>Ragu</span><strong>{{ "{:,}".format(counts.ragu) }}</strong></div>
+</section>
+<div class="validation-toolbar">
+  <p class="muted">Halaman {{ page }} dari {{ pages }} · {{ total }} label tampil</p>
+  <form method="get">
+    <label for="status">Tampilkan</label>
+    <select id="status" name="status" onchange="this.form.submit()">
+      <option value="" {% if not status_filter %}selected{% endif %}>Semua</option>
+      <option value="belum" {% if status_filter == 'belum' %}selected{% endif %}>Belum diisi</option>
+      {% for item in ['benar', 'salah', 'ragu'] %}
+      <option value="{{ item }}" {% if status_filter == item %}selected{% endif %}>{{ item|title }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<form method="post" action="{{ url_for('validasi.save') }}">
+  <input type="hidden" name="page" value="{{ page }}">
+  <div class="validation-list">
+    {% for validation, label, review in rows %}
+    <article class="validation-card">
+      <input type="hidden" name="validation_id" value="{{ validation.id }}">
+      <div class="validation-card-head">
+        <span class="eyebrow">Sampel {{ validation.urutan }} · Rating {{ review.rating or '—' }}</span>
+        <span class="label-pill label-{{ label.sentimen }}">{{ label.sentimen|title }}</span>
+      </div>
+      <p class="validation-text">{{ label.sub_kalimat }}</p>
+      <p class="muted validation-meta">{{ review.teks }}</p>
+      {% set siblings = label_groups.get((label.ulasan_id, label.sub_kalimat), []) %}
+      {% if siblings|length > 1 %}
+      <div class="validation-related">
+        <span class="field-label">Semua label pada bagian ini</span>
+        {% for sibling in siblings %}
+        <span class="label-pill label-{{ sibling.sentimen }}">{{ sibling.aspek|replace('_', ' ')|title }} · {{ sibling.sentimen|title }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="validation-fields">
+        <div>
+          <span class="field-label">Label program</span>
+          <strong>{{ label.aspek|replace('_', ' ')|title }} · {{ label.sentimen|title }}</strong>
+        </div>
+        <fieldset>
+          <legend>Status label</legend>
+          {% for item in ['benar', 'salah', 'ragu'] %}
+          <label class="check-option"><input type="radio" name="status_{{ validation.id }}" value="{{ item }}" {% if validation.status == item %}checked{% endif %}> {{ item|title }}</label>
+          {% endfor %}
+        </fieldset>
+        <fieldset class="aspect-checks">
+          <legend>Aspek koreksi, bisa lebih dari satu</legend>
+          {% for item in aspek %}
+          <label class="check-option">
+            <input type="checkbox" name="aspek_{{ validation.id }}[]" value="{{ item }}"
+              {% if item in correction_aspects.get(validation.id, []) %}checked{% endif %}>
+            {{ item|replace('_', ' ')|title }}
+          </label>
+          {% endfor %}
+        </fieldset>
+        <label>Sentimen koreksi
+          <select name="sentimen_{{ validation.id }}">
+            <option value="">Tidak dikoreksi</option>
+            {% for item in sentimen %}<option value="{{ item }}" {% if validation.sentimen_koreksi == item %}selected{% endif %}>{{ item|title }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Catatan
+          <input type="text" name="catatan_{{ validation.id }}" maxlength="500" value="{{ validation.catatan or '' }}" placeholder="Contoh: aspek harga, bukan suasana">
+        </label>
+      </div>
+    </article>
+    {% else %}
+    <div class="flash flash-info">Tidak ada label pada filter ini</div>
+    {% endfor %}
+  </div>
+  {% if rows %}<button class="button button-primary validation-save" type="submit">Simpan checklist halaman ini</button>{% endif %}
+</form>
+<nav class="pagination" aria-label="Halaman validasi">
+  {% if page > 1 %}<a href="{{ url_for('validasi.index', page=page-1, status=status_filter) }}">Sebelumnya</a>{% endif %}
+  <span>Halaman {{ page }} / {{ pages }}</span>
+  {% if page < pages %}<a href="{{ url_for('validasi.index', page=page+1, status=status_filter) }}">Berikutnya</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

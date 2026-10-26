@@ -1,0 +1,40 @@
+{
+  "ulasan_awal": 109778,
+  "ulasan_valid": 98962,
+  "label_setelah_preprocessing": 220022,
+  "jumlah_review_berlabel": 82514,
+  "jumlah_kafe": 322,
+  "distribusi_sentimen": {
+    "positif": 176211,
+    "netral": 25607,
+    "negatif": 18204
+  },
+  "metrics_alpha_1_min_df_1": {
+    "accuracy": 0.6584569276876969,
+    "macro_f1": 0.5786757668880673,
+    "weighted_f1": 0.6943564584430196,
+    "per_class": {
+      "negatif": {
+        "precision": 0.4464993394980185,
+        "recall": 0.7585764668162873,
+        "f1": 0.562128771679734,
+        "support": 3119
+      },
+      "netral": {
+        "precision": 0.29994679436020216,
+        "recall": 0.6047197640117994,
+        "f1": 0.400995821107851,
+        "support": 3729
+      },
+      "positif": {
+        "precision": 0.9475357710651828,
+        "recall": 0.652622796954844,
+        "f1": 0.772902707876617,
+        "support": 19178
+      }
+    },
+    "jumlah_label_training": 175956,
+    "jumlah_label_testing": 26026,
+    "baris_testing_dikeluarkan_teks_identik": 17902
+  }
+}

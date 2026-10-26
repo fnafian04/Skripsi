@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Rekomendasi Kafe WFC — Nafinder{% endblock %}
+{% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Peta rasa / Malang</p>
+  <h1>Temukan meja untuk bekerja</h1>
+  <p class="lede">Peringkat berdasarkan <strong>sentimen positif aspek WFC (70%)</strong> dan <strong>rating Google Maps (30%)</strong></p>
+</header>
+
+<form method="get" class="filter-form">
+  <div class="search-field">
+    <label for="cafe-search" class="eyebrow">Cari kafe</label>
+    <div class="search-control">
+      <input id="cafe-search" name="q" type="search" value="{{ search }}" maxlength="100" placeholder="Nama, alamat, atau place ID" autocomplete="off">
+    </div>
+    <small class="muted">Ketik minimal 3 huruf untuk mencari</small>
+  </div>
+  <div class="filter-intro"><span class="eyebrow">Saring suasana</span><strong>Fasilitas pentingmu</strong></div>
+  <label class="check-pill"><input type="checkbox" name="buka_24jam" value="1" onchange="this.form.submit()" {% if f.buka_24jam %}checked{% endif %}><span>Buka 24 jam</span></label>
+  <label class="check-pill"><input type="checkbox" name="wifi" value="1" onchange="this.form.submit()" {% if f.wifi %}checked{% endif %}><span>Wi-Fi</span></label>
+  <label class="check-pill"><input type="checkbox" name="stopkontak" value="1" onchange="this.form.submit()" {% if f.stopkontak %}checked{% endif %}><span>Stopkontak</span></label>
+  <label class="check-pill"><input type="checkbox" name="meja_kerja" value="1" onchange="this.form.submit()" {% if f.meja_kerja %}checked{% endif %}><span>Meja kerja</span></label>
+  {% if f.buka_24jam or f.wifi or f.stopkontak or f.meja_kerja or search %}
+  <a class="filter-reset" href="{{ url_for('rekomendasi.index') }}" aria-label="Reset semua filter" title="Reset semua filter">
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 4v6h6"/><path d="M5.2 10A7.5 7.5 0 1 1 6.9 17"/></svg>
+  </a>
+  {% endif %}
+</form>
+<script>
+const cafeSearch = document.getElementById('cafe-search');
+const filterForm = cafeSearch ? cafeSearch.form : null;
+let searchTimer = null;
+let requestController = null;
+function refreshResults() {
+  const results = document.getElementById('recommendation-results');
+  if (!filterForm || !results) return;
+  const value = cafeSearch.value.trim();
+  if (value.length > 0 && value.length < 3) return;
+  if (requestController) requestController.abort();
+  requestController = new AbortController();
+  const url = new URL(filterForm.action || window.location.href, window.location.origin);
+  url.search = new URLSearchParams(new FormData(filterForm)).toString();
+  results.classList.add('is-loading');
+  fetch(url, {
+    headers: {'X-Requested-With': 'XMLHttpRequest'},
+    signal: requestController.signal
+  }).then(function (response) {
+    if (!response.ok) throw new Error('Permintaan pencarian gagal.');
+    return response.text();
+  }).then(function (html) {
+    results.outerHTML = html;
+    window.history.replaceState({}, '', url);
+  }).catch(function (error) {
+    if (error.name !== 'AbortError') console.error(error);
+  }).finally(function () {
+    const current = document.getElementById('recommendation-results');
+    if (current) current.classList.remove('is-loading');
+  });
+}
+if (cafeSearch && filterForm) {
+  cafeSearch.addEventListener('input', function () {
+    const value = this.value.trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () {
+      if (value.length === 0 || value.length >= 3) refreshResults();
+    }, 350);
+  });
+  filterForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    refreshResults();
+  });
+  filterForm.querySelectorAll('input[type="checkbox"]').forEach(function (input) {
+    input.addEventListener('change', refreshResults);
+  });
+}
+</script>
+
+{% include 'rekomendasi/_results.html' %}
+{% endblock %}

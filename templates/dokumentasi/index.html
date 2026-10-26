@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Dokumentasi Metode — Nafinder{% endblock %}
+{% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Dokumentasi metode / source code</p>
+  <h1>Rumus yang bekerja di balik program</h1>
+  <p class="lede">Dokumentasi visual tahapan preprocessing dan Multinomial Naive Bayes yang diimplementasikan manual pada aplikasi Nafinder</p>
+</header>
+
+<nav class="doc-nav" aria-label="Bagian dokumentasi">
+  <a href="#preprocessing">01. Preprocessing</a>
+  <a href="#klasifikasi">02. Klasifikasi</a>
+  <a href="#evaluasi">03. Evaluasi</a>
+</nav>
+<div class="doc-callout"><strong>Keterangan jumlah kafe</strong><p>Dataset mentah berisi 324 kafe dan seluruhnya memiliki ulasan valid<br>Setelah deteksi aspek dan pelabelan, 323 kafe menghasilkan minimal satu label aspek-sentimen sehingga angka agregasi label dapat berjumlah 323</p></div>
+
+<section class="doc-section" id="preprocessing">
+  <div class="doc-section-heading"><span class="doc-number">01</span><div><p class="eyebrow">processing/text_processing.py</p><h2>Preprocessing teks</h2><p>Ulasan mentah diubah menjadi teks terstruktur sebelum digunakan oleh model</p></div></div>
+  <div class="doc-flow">
+    <article class="doc-step"><span>1</span><div><h3>Cleaning</h3><p>Menghapus URL, mention, hashtag, emoji, angka, dan tanda baca</p><div class="math-block">\[
+      T_c = \operatorname{clean}(T)
+    \]</div></div></article>
+    <article class="doc-step"><span>2</span><div><h3>Case folding</h3><p>Seluruh huruf diseragamkan menjadi huruf kecil</p><div class="math-block">\[
+      T_l = \operatorname{lower}(T_c)
+    \]</div></div></article>
+    <article class="doc-step"><span>3</span><div><h3>Tokenizing</h3><p>Teks dipecah menjadi token kata</p><div class="math-block">\[
+      T_l \longrightarrow [w_1,w_2,\ldots,w_n]
+    \]</div></div></article>
+    <article class="doc-step"><span>4</span><div><h3>Normalisasi</h3><p>Kata tidak baku dipetakan ke bentuk baku menggunakan kamus normalisasi</p><div class="math-block">\[
+      w_i' =
+      \begin{cases}
+      \operatorname{kamus}(w_i), & w_i \in \mathcal{K}\\
+      w_i, & w_i \notin \mathcal{K}
+      \end{cases}
+    \]</div></div></article>
+    <article class="doc-step"><span>5</span><div><h3>Stopword removal</h3><p>Kata umum dihapus, sedangkan kata negasi penting tetap dipertahankan</p><div class="math-block">\[
+      T_s = \{w_i' \mid w_i' \notin S\}
+    \]</div></div></article>
+    <article class="doc-step"><span>6</span><div><h3>Stemming</h3><p>Token diubah menjadi bentuk dasar menggunakan Sastrawi</p><div class="math-block">\[
+      T_r = [\operatorname{stem}(w) \mid w \in T_s]
+    \]</div></div></article>
+  </div>
+  <div class="doc-callout"><strong>Pelabelan sentimen berbasis lexicon</strong><p>Setiap kata positif menambah skor satu dan kata negatif mengurangi skor satu<br>Negasi membalik skor kata sentimen di sekitarnya</p><div class="math-block">\[
+    \operatorname{skor}(T)=\sum_{w\in P}\!1-\sum_{w\in N}\!1
+  \]</div><p class="doc-small">Jika skor \(>0\), label positif<br>Jika skor \(<0\), label negatif<br>Jika skor \(=0\), rating digunakan sebagai cadangan: rating 5 positif, rating 1 negatif, selain itu netral</p></div>
+</section>
+
+<section class="doc-section" id="klasifikasi">
+  <div class="doc-section-heading"><span class="doc-number">02</span><div><p class="eyebrow">processing/classification.py · naive_bayes.py</p><h2>Multinomial Naive Bayes</h2><p>Data berlabel dibagi, diubah menjadi fitur numerik, diseimbangkan, lalu digunakan untuk melatih model</p></div></div>
+  <div class="doc-subsection"><h3>A. Pembagian data anti-kebocoran</h3><p>Pembagian dilakukan berdasarkan <code>review_id</code> sehingga satu ulasan tidak tersebar ke training dan testing</p><div class="math-block">\[
+    D = D_{\mathrm{train}} \cup D_{\mathrm{test}},\qquad
+    D_{\mathrm{train}} \cap D_{\mathrm{test}} = \varnothing
+  \]</div><p class="doc-small">Konfigurasi program: \(test\_size=0.2\), \(random\_state=42\)</p></div>
+  <div class="doc-subsection"><h3>B. Pembobotan TF-IDF manual</h3><p>TF-IDF memberi bobot tinggi pada kata yang penting dalam dokumen tetapi jarang muncul pada dokumen lain</p><div class="formula-pair"><div class="math-block">\[
+    tf(t,d)=
+    \begin{cases}
+    1+\ln f_{t,d}, & f_{t,d}>0\\
+    0, & f_{t,d}=0
+    \end{cases}
+  \]</div><div class="math-block">\[
+    idf(t)=\ln\left(\frac{1+N}{1+df(t)}\right)+1
+  \]</div></div><div class="math-block">\[
+    \operatorname{tfidf}(t,d)=tf(t,d)\times idf(t)
+    \qquad
+    \mathbf{v}_{norm}=\frac{\mathbf{v}}{\sqrt{\sum_i v_i^2}}
+  \]</div></div>
+  <div class="doc-subsection"><h3>C. Random Oversampling manual</h3><p>Oversampling hanya diterapkan pada data training untuk menyeimbangkan kelas minoritas</p><div class="math-block">\[
+    n_{\mathrm{target}}=\max(n_{\mathrm{negatif}},n_{\mathrm{netral}},n_{\mathrm{positif}})
+  \]</div><p class="doc-small">Sampel kelas yang jumlahnya lebih kecil dipilih ulang secara acak hingga mencapai \(n_{\mathrm{target}}\)<br>Data testing tidak diubah</p></div>
+  <div class="doc-subsection"><h3>D. Perhitungan Multinomial Naive Bayes</h3><p>Program menyimpan nilai dalam bentuk logaritma agar perhitungan stabil</p><div class="formula-pair"><div class="math-block">\[
+    \log P(c)=\ln\left(\frac{N_c}{N}\right)
+  \]</div><div class="math-block">\[
+    P(w\mid c)=
+    \frac{\operatorname{count}(w,c)+\alpha}
+    {\sum_{v\in V}\operatorname{count}(v,c)+\alpha |V|}
+  \]</div></div><p class="doc-small">Program menggunakan Laplace smoothing \(\alpha=2.0\)</p><div class="math-block">\[
+    \hat{c}=\arg\max_{c}
+    \left[\log P(c)+
+    \sum_{w\in d}\operatorname{tfidf}(w,d)\log P(w\mid c)\right]
+  \]</div></div>
+</section>
+
+<section class="doc-section" id="evaluasi">
+  <div class="doc-section-heading"><span class="doc-number">03</span><div><p class="eyebrow">processing/evaluation.py</p><h2>Evaluasi model</h2><p>Prediksi dibandingkan dengan label aktual pada data testing</p></div></div>
+  <div class="metric-formulas">
+    <div class="metric-card"><strong>Accuracy</strong><div class="math-block">\[\operatorname{Accuracy}=\frac{\sum_c TP_c}{N}\]</div></div>
+    <div class="metric-card"><strong>Precision</strong><div class="math-block">\[\operatorname{Precision}_c=\frac{TP_c}{TP_c+FP_c}\]</div></div>
+    <div class="metric-card"><strong>Recall</strong><div class="math-block">\[\operatorname{Recall}_c=\frac{TP_c}{TP_c+FN_c}\]</div></div>
+    <div class="metric-card"><strong>F1-score</strong><div class="math-block">\[F1_c=2\cdot\frac{P_cR_c}{P_c+R_c}\]</div></div>
+  </div>
+  <div class="doc-callout"><strong>File yang menjalankan setiap tahap</strong><p><code>preprocessing.py</code> menerapkan preprocessing ke dataset<br><code>classification.py</code> mengatur urutan klasifikasi<br><code>naive_bayes.py</code> berisi perhitungan TF-IDF, oversampling, dan MNB<br><code>evaluation.py</code> menghitung metrik<br><code>pipeline.py</code> hanya memanggil semuanya secara berurutan</p></div>
+</section>
+<script>
+window.MathJax = {tex: {inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']]}};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+{% endblock %}

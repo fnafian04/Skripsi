@@ -1,0 +1,33 @@
+<div id="recommendation-results">
+{% if kafe_list %}
+<div class="listing-heading"><div><p class="eyebrow">Daftar pilihan</p><h2>{{ total_cocok }} kafe untuk dipertimbangkan</h2>{% if search %}<p class="muted">Hasil pencarian untuk “{{ search }}”.</p>{% endif %}</div><span class="muted">Menampilkan {{ kafe_list|length }} teratas</span></div>
+
+<div class="recommendation-list">
+    {% for k in kafe_list %}
+    <article class="recommendation-card">
+      <div class="rank">{{ '%02d'|format(loop.index) }}</div>
+      <div class="recommendation-main">
+        <p class="eyebrow">Rekomendasi {{ loop.index }}</p><h3>{{ k.nama }}</h3><p class="muted">{{ k.alamat }}</p><a class="maps-button" href="{{ k.url_maps }}" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-6.1 7-12A7 7 0 1 0 5 9c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg><span>Buka di Maps</span></a>
+        <div class="tag-row">
+          {% if k.wifi %}<span class="tag{% if f.wifi %} tag-matcha{% endif %}">Wi-Fi</span>{% endif %}
+          {% if k.stopkontak %}<span class="tag{% if f.stopkontak %} tag-matcha{% endif %}">Stopkontak</span>{% endif %}
+          {% if k.meja_kerja %}<span class="tag{% if f.meja_kerja %} tag-matcha{% endif %}">Meja nugas</span>{% endif %}
+          {% if k.buka_24jam %}<span class="tag{% if f.buka_24jam %} tag-matcha{% endif %}">24 jam</span>{% endif %}
+        </div>
+      </div>
+      <div class="recommendation-score"><span>Skor</span><strong>{{ '%.1f'|format(k.skor_akhir) }}</strong><small>Positif WFC {{ '%.1f'|format(k.persen_wfc) }}%</small></div>
+      <div class="recommendation-meta"><div><span>Rating Maps dari dataset</span><strong>★ {{ '%.1f'|format(k.rating_gmaps) }}</strong><small>{{ "{:,}".format(k.jumlah_ulasan) }} ulasan aktif</small></div><div><span>Keunggulan</span>
+        {% if k.kekuatan %}<div class="tag-row">{% for item in k.kekuatan %}<span class="tag">{{ item }}</span>{% endfor %}</div>
+        {% else %}<span class="muted">Belum ada sinyal kuat</span>{% endif %}
+      </div></div>
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+  {% if total_ulasan_tersimpan == 0 %}
+  <div class="flash flash-info">Belum ada dataset ulasan yang aktif atau diproses di database. Silakan buka menu <a href="{{ url_for('dataset.index') }}">Kelola Dataset</a> untuk memilih dan memproses dataset ulasan.</div>
+  {% else %}
+  <div class="flash flash-info">Tidak ada kafe yang cocok dengan kombinasi pencarian dan filter fasilitas yang dipilih</div>
+  {% endif %}
+{% endif %}
+</div>

@@ -1,0 +1,136 @@
+{
+  "baseline": {
+    "classes": [
+      "negatif",
+      "netral",
+      "positif"
+    ],
+    "matrix": [
+      [
+        2662,
+        813,
+        274
+      ],
+      [
+        1129,
+        2137,
+        653
+      ],
+      [
+        2719,
+        5731,
+        21430
+      ]
+    ],
+    "accuracy": 0.6985458612975392,
+    "per_class": {
+      "negatif": {
+        "precision": 0.40890937019969276,
+        "recall": 0.7100560149373166,
+        "f1": 0.5189589628618774,
+        "support": 3749
+      },
+      "netral": {
+        "precision": 0.24616979610643935,
+        "recall": 0.5452921663689717,
+        "f1": 0.33920634920634923,
+        "support": 3919
+      },
+      "positif": {
+        "precision": 0.9585364762714139,
+        "recall": 0.7172021419009371,
+        "f1": 0.820491222696556,
+        "support": 29880
+      }
+    },
+    "macro": {
+      "precision": 0.537871880859182,
+      "recall": 0.6575167744024085,
+      "f1": 0.5595521782549276
+    },
+    "weighted": {
+      "precision": 0.8293067692236507,
+      "recall": 0.6985458612975392,
+      "f1": 0.7401513947076264
+    },
+    "jumlah_testing": 37548,
+    "split_unit": "review_id",
+    "random_state": 42,
+    "jumlah_review_training": 70551,
+    "jumlah_review_testing": 14930,
+    "jumlah_label_training": 192341,
+    "jumlah_label_testing": 37548,
+    "baris_testing_dikeluarkan_teks_identik": 10713,
+    "jumlah_training_ros": 473637,
+    "kosakata_tfidf": 25761,
+    "alpha": 2.0,
+    "min_df": 1
+  },
+  "v5": {
+    "classes": [
+      "negatif",
+      "netral",
+      "positif"
+    ],
+    "matrix": [
+      [
+        2166,
+        494,
+        163
+      ],
+      [
+        1490,
+        3911,
+        860
+      ],
+      [
+        1978,
+        4768,
+        12312
+      ]
+    ],
+    "accuracy": 0.6534361452633075,
+    "per_class": {
+      "negatif": {
+        "precision": 0.3844515441959531,
+        "recall": 0.767268862911796,
+        "f1": 0.5122383824051081,
+        "support": 2823
+      },
+      "netral": {
+        "precision": 0.42635996947563504,
+        "recall": 0.6246605973486663,
+        "f1": 0.5068031618504599,
+        "support": 6261
+      },
+      "positif": {
+        "precision": 0.9232845894263217,
+        "recall": 0.6460279147864414,
+        "f1": 0.7601642330133054,
+        "support": 19058
+      }
+    },
+    "macro": {
+      "precision": 0.57803203436597,
+      "recall": 0.6793191250156346,
+      "f1": 0.5930685924229578
+    },
+    "weighted": {
+      "precision": 0.758677570302003,
+      "recall": 0.6534361452633075,
+      "f1": 0.6789266399915757
+    },
+    "jumlah_testing": 28142,
+    "split_unit": "review_id",
+    "random_state": 42,
+    "jumlah_review_training": 68479,
+    "jumlah_review_testing": 12870,
+    "jumlah_label_training": 194851,
+    "jumlah_label_testing": 28142,
+    "baris_testing_dikeluarkan_teks_identik": 20528,
+    "jumlah_training_ros": 444177,
+    "kosakata_tfidf": 20085,
+    "alpha": 2.0,
+    "min_df": 1
+  }
+}

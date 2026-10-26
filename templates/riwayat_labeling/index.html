@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Riwayat labeling — Nafinder{% endblock %}
+{% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Bukti iterasi metode</p>
+  <h1>Riwayat labeling v1 sampai v3</h1>
+  <p class="lede">Perbandingan tiga tahap labeling dan validasi manual tanpa mengubah label baseline</p>
+</header>
+<div class="doc-callout"><strong>Cara membaca tabel</strong><p>Angka benar, salah, dan ragu adalah hasil pemeriksaan manual terhadap sampel yang tersedia. Versi teknis lama v4 ditampilkan sebagai v2 dan v5 ditampilkan sebagai v3 agar urutan iterasi pada laporan lebih ringkas.</p></div>
+<section class="card">
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Versi</th><th>Perubahan</th><th>Validasi manual</th><th>Accuracy</th><th>Macro-F1</th><th>Weighted-F1</th><th>Status bukti</th></tr></thead>
+      <tbody>
+      {% for item in versions %}
+        <tr id="{{ item.version }}">
+          <td><strong>{{ item.version|upper }}</strong><br><span class="muted">{{ item.name }}</span></td>
+          <td>{{ item.description }}</td>
+          <td>{% if item.manual %}<strong>{{ item.manual.benar }}/{{ item.manual.total }}</strong> benar<br><span class="muted">{{ item.manual.salah }} salah · {{ item.manual.ragu }} ragu</span>{% else %}<span class="muted">Belum tersedia</span>{% endif %}</td>
+          <td>{% if item.metrics.accuracy is defined %}{{ '%.2f'|format(item.metrics.accuracy * 100) }}%{% else %}—{% endif %}</td>
+          <td>{% if item.metrics.macro_f1 is defined %}{{ '%.2f'|format(item.metrics.macro_f1 * 100) }}%{% elif item.metrics.macro is defined %}{{ '%.2f'|format(item.metrics.macro.f1 * 100) }}%{% else %}—{% endif %}</td>
+          <td>{% if item.metrics.weighted_f1 is defined %}{{ '%.2f'|format(item.metrics.weighted_f1 * 100) }}%{% elif item.metrics.weighted is defined %}{{ '%.2f'|format(item.metrics.weighted.f1 * 100) }}%{% else %}—{% endif %}</td>
+          <td>{{ item.evidence }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="doc-callout"><strong>Catatan metodologis</strong><p>Validasi manual satu peneliti disebut sebagai evaluasi internal atau tingkat kesesuaian terhadap pemeriksaan manual, bukan gold standard dan bukan inter-rater agreement. Untuk laporan utama, baseline tetap dapat dipilih karena accuracy dan weighted-F1 lebih tinggi, sedangkan v2 dan v3 ditampilkan sebagai bukti iterasi optimasi.</p></section>
+{% endblock %}

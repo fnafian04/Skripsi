@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nafinder</title>
+  <style>
+    :root { --navy:#1f385f; --deep:#14243f; --paper:#f4f6f8; --card:#fff; --muted:#71809a; --green:#47745a; --terra:#bd6d55; --line:#dce3eb; }
+    * { box-sizing:border-box; } body { margin:0; color:#17233b; background:var(--paper); font:15px/1.5 "Segoe UI",sans-serif; }
+    header { padding:32px 7%; color:#fff; background:linear-gradient(135deg,var(--navy),var(--deep)); }
+    header h1 { margin:0 0 6px; font-size:32px; } header p { margin:0; color:#dce7f4; }
+    main { max-width:1180px; margin:28px auto; padding:0 20px; } .note { padding:14px 18px; background:#fff8e9; border-left:4px solid #d29d4a; }
+    .screen { margin:28px 0 38px; padding:20px; background:#e7ebf0; border:1px solid var(--line); border-radius:14px; box-shadow:0 8px 24px #14243f12; }
+    .screen-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; color:var(--navy); }
+    .screen-title h2 { margin:0; font-size:21px; } .browser { padding:7px 12px; color:#fff; background:var(--deep); border-radius:8px; font-size:12px; }
+    .app { display:grid; grid-template-columns:190px 1fr; min-height:285px; overflow:hidden; background:var(--card); border-radius:9px; }
+    .side { padding:20px 14px; color:#fff; background:linear-gradient(165deg,#1b3153,#101d34); } .brand { margin-bottom:28px; font-weight:800; }
+    .nav { margin:12px 0; padding:9px 10px; color:#d9e4f2; border-radius:7px; } .nav.active { color:#fff; background:#38577f; }
+    .content { padding:25px 30px; } .eyebrow { margin:0 0 5px; color:var(--terra); font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    h3 { margin:0 0 8px; color:var(--navy); font-size:26px; } .muted { color:var(--muted); }
+    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:22px; } .stat { padding:14px; border:1px solid var(--line); border-radius:9px; } .stat strong { display:block; color:var(--navy); font-size:25px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:20px; } .panel { padding:17px; border:1px solid var(--line); border-radius:9px; } .dark { color:#fff; background:var(--deep); } .dark h4 { color:#fff; }
+    .workflow { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; } .step { padding:18px; border:1px solid var(--line); border-radius:9px; } .step.done { border-left:5px solid var(--green); } .step.ready { border-left:5px solid var(--terra); }
+    .button { display:inline-block; margin-top:14px; padding:9px 14px; color:#fff; background:var(--navy); border-radius:7px; font-weight:700; } .button.green { background:var(--green); }
+    .search { display:flex; gap:8px; margin:18px 0; } input { flex:1; padding:10px; border:1px solid var(--line); border-radius:7px; } .chips span { display:inline-block; margin:4px; padding:6px 10px; border:1px solid #7890ad; border-radius:99px; font-size:12px; }
+    .cafe { display:grid; grid-template-columns:38px 1fr 120px; gap:15px; align-items:center; padding:14px; border:1px solid var(--line); border-radius:9px; } .cafe + .cafe { margin-top:8px; } .rank { color:var(--terra); font-size:21px; font-weight:700; } .score strong { display:block; color:var(--green); font-size:25px; }
+    table { width:100%; border-collapse:collapse; } th,td { padding:9px; border-bottom:1px solid var(--line); text-align:left; } th { color:var(--navy); background:#e8eef7; }
+    @media(max-width:700px) { .app,.workflow,.grid { grid-template-columns:1fr; } .side { display:none; } .stats { grid-template-columns:1fr 1fr; } .content { padding:18px; } }
+    @media print { header { color:#000; background:#fff; border-bottom:2px solid var(--navy); } .screen { break-inside:avoid; box-shadow:none; } }
+  </style>
+</head>
+<body>
+  <header><h1>Nafinder</h1><p>Aplikasi rekomendasi kafe WFC</p></header>
+  <main>
+    <section class="screen">
+      <div class="screen-title"><h2>01. Dashboard</h2><span class="browser">/dashboard/</span></div>
+      <div class="app"><aside class="side"><div class="brand">Nafinder</div><div class="nav active">Dashboard</div><div class="nav">Kelola Dataset</div><div class="nav">Rekomendasi</div><div class="nav">Hasil Klasifikasi</div></aside><div class="content"><p class="eyebrow">Ringkasan</p><h3>Ruang kerja yang terasa tepat.</h3><p class="muted">Ringkasan data dan sinyal model untuk membantu memilih kafe.</p><div class="stats"><div class="stat"><span>Kafe</span><strong>324</strong></div><div class="stat"><span>Ulasan</span><strong>109.778</strong></div><div class="stat"><span>Label</span><strong>240.636</strong></div><div class="stat"><span>Akurasi</span><strong>69,83%</strong></div></div><div class="grid"><div class="panel"><b>Macro F1</b><h3>0,5566</h3><span class="muted">Evaluasi MNB manual</span></div><div class="panel dark"><h4>Langkah berikut</h4><span>Gunakan rekomendasi untuk menyaring fasilitas kafe.</span></div></div></div></div>
+    </section>
+
+    <section class="screen">
+      <div class="screen-title"><h2>02. Kelola Dataset</h2><span class="browser">/dataset/</span></div>
+      <div class="app"><aside class="side"><div class="brand">Nafinder</div><div class="nav">Dashboard</div><div class="nav active">Kelola Dataset</div><div class="nav">Rekomendasi</div><div class="nav">Hasil Klasifikasi</div></aside><div class="content"><p class="eyebrow">Alur kerja bertahap</p><h3>Dataset terunggah</h3><p><b>ulasan_wfc_final.csv</b> <span class="muted">· 26,92 MB</span></p><div class="workflow"><div class="step done"><p class="eyebrow">Langkah 02</p><h4>Preprocessing & pelabelan</h4><p class="muted">Cleaning, normalisasi, aspek, sentimen, dan stemming.</p><span class="button green">Selesai</span></div><div class="step ready"><p class="eyebrow">Langkah 03</p><h4>Klasifikasi MNB manual</h4><p class="muted">Split anti-bocor, TF-IDF, ROS, MNB, dan evaluasi.</p><span class="button">Jalankan klasifikasi</span></div></div></div></div>
+    </section>
+
+    <section class="screen">
+      <div class="screen-title"><h2>03. Rekomendasi Kafe</h2><span class="browser">/rekomendasi/</span></div>
+      <div class="app"><aside class="side"><div class="brand">Nafinder</div><div class="nav">Dashboard</div><div class="nav">Kelola Dataset</div><div class="nav active">Rekomendasi</div><div class="nav">Hasil Klasifikasi</div></aside><div class="content"><p class="eyebrow">Pencarian dan filter</p><h3>Temukan meja untuk bekerja.</h3><div class="search"><input placeholder="Ketik minimal 3 huruf: nama atau alamat kafe"><span class="button">Auto-filter</span></div><div class="chips"><span>Wi-Fi</span><span>Stopkontak</span><span>Meja kerja</span><span>Buka 24 jam</span></div><div style="margin-top:14px"><div class="cafe"><div class="rank">01</div><div><b>Kafe Contoh</b><div class="muted">Jl. Contoh, Malang · Wi-Fi · Meja kerja</div></div><div class="score"><span>Skor</span><strong>82,4</strong></div></div><div class="cafe"><div class="rank">02</div><div><b>Kopi Studio</b><div class="muted">Jl. Pahlawan, Malang · Wi-Fi</div></div><div class="score"><span>Skor</span><strong>79,8</strong></div></div></div></div></div>
+    </section>
+
+    <section class="screen">
+      <div class="screen-title"><h2>04. Hasil Klasifikasi</h2><span class="browser">/hasil/</span></div>
+      <div class="app"><aside class="side"><div class="brand">Nafinder</div><div class="nav">Dashboard</div><div class="nav">Kelola Dataset</div><div class="nav">Rekomendasi</div><div class="nav active">Hasil Klasifikasi</div></aside><div class="content"><p class="eyebrow">Evaluasi model manual</p><h3>Yang terbaca dari ulasan.</h3><div class="stats"><div class="stat"><span>Accuracy</span><strong>69,83%</strong></div><div class="stat"><span>Macro F1</span><strong>0,5566</strong></div><div class="stat"><span>Weighted F1</span><strong>0,7398</strong></div><div class="stat"><span>Testing</span><strong>37.548</strong></div></div><div style="margin-top:18px"><table><thead><tr><th>Aktual / Prediksi</th><th>Negatif</th><th>Netral</th><th>Positif</th></tr></thead><tbody><tr><th>Negatif</th><td>2.616</td><td>844</td><td>289</td></tr><tr><th>Netral</th><td>1.124</td><td>2.089</td><td>706</td></tr><tr><th>Positif</th><td>2.657</td><td>5.708</td><td>21.515</td></tr></tbody></table></div></div></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,47 @@
+# ==========================================
+# Nafinder - Git Ignore Configuration
+# ==========================================
+
+# Byte-compiled / optimized / Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables & secrets
+.env
+.env.*
+!*.example
+
+# Temporary and log files
+*.log
+scratch/
+
+# Database SQLite / local temp files
+*.sqlite3
+*.db
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Large dataset caches and generated pipeline artifacts
+# Mencegah penolakan push GitHub akibat berkas >100 MB
+uploads_tmp/*.csv
+uploads_tmp/*.pkl
+uploads_tmp/.*.pkl
+uploads_tmp/.*.csv
+uploads_tmp/.*.json
+uploads_tmp/datasets/*.csv
+!uploads_tmp/.gitkeep
+!uploads_tmp/datasets/.gitkeep

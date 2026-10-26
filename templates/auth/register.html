@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Register — Nafinder{% endblock %}
+{% block content %}
+<div class="auth-card"><div class="auth-brand"><span class="brand-mark">N</span><span>Nafinder</span></div>
+  <p class="eyebrow">Mulai mencatat pilihan</p>  <h1>Buat akun Nafinder</h1>
+  <form method="post">
+    <label>Username
+      <input type="text" name="username" required autofocus>
+    </label>
+    <label>Email
+      <input type="email" name="email" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" required minlength="6">
+    </label>
+    <button type="submit">Daftar</button>
+  </form>
+  <p class="muted">Sudah punya akun? <a href="{{ url_for('auth.login') }}">Login</a></p>
+</div>
+{% endblock %}

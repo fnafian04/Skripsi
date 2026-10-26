@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Validasi labeling v4 — Nafinder{% endblock %}
+{% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Eksperimen multi-aspek</p>
+  <h1>Validasi labeling v4</h1>
+  <p class="lede">Periksa v4 secara terpisah tanpa mengubah baseline</p>
+</header>
+{% if not total_sample %}
+<section class="card validation-start">
+  <div><p class="eyebrow">Batch v4 belum dibuat</p><h2>Mulai checklist 100 label v4</h2><p class="muted">Sampel diambil dari CSV eksperimen v4</p></div>
+  <form method="post" action="{{ url_for('validasi_v4.start') }}"><button class="button button-primary" type="submit">Mulai 100 label v4</button></form>
+</section>
+{% else %}
+<section class="validation-summary">
+  <div><span>Target sampel</span><strong>{{ total_sample }}</strong></div><div><span>Sudah diperiksa</span><strong>{{ checked }}</strong></div>
+  <div><span>Benar</span><strong>{{ counts.benar }}</strong></div><div><span>Salah</span><strong>{{ counts.salah }}</strong></div><div><span>Ragu</span><strong>{{ counts.ragu }}</strong></div>
+</section>
+<div class="validation-toolbar"><p class="muted">Halaman {{ page }} dari {{ pages }} · {{ total }} label tampil</p>
+  <form method="get"><label for="status">Tampilkan</label><select id="status" name="status" onchange="this.form.submit()">
+    <option value="" {% if not status_filter %}selected{% endif %}>Semua</option><option value="belum" {% if status_filter == 'belum' %}selected{% endif %}>Belum diisi</option>
+    {% for value in ['benar','salah','ragu'] %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ value|title }}</option>{% endfor %}
+  </select></form>
+</div>
+<form method="post" action="{{ url_for('validasi_v4.save') }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="status_filter" value="{{ status_filter }}">
+<div class="validation-list">
+{% for item in rows %}
+<article class="validation-card"><input type="hidden" name="validation_id" value="{{ item.id }}">
+  <div class="validation-card-head"><span class="eyebrow">Sampel v4 {{ item.urutan }} · Rating {{ item.rating or '—' }}</span><span class="label-pill label-{{ item.sentimen }}">{{ item.sentimen|title }}</span></div>
+  <p class="validation-text">{{ item.sub_kalimat }}</p><p class="muted validation-meta">{{ item.teks_ulasan }}</p>
+  <div class="validation-fields">
+    <div><span class="field-label">Label v4</span><strong>{{ item.aspek|replace('_',' ')|title }} · {{ item.sentimen|title }}</strong></div>
+    <fieldset><legend>Status label</legend>{% for value in ['benar','salah','ragu'] %}<label class="check-option"><input type="radio" name="status_{{ item.id }}" value="{{ value }}" {% if item.status == value %}checked{% endif %}> {{ value|title }}</label>{% endfor %}</fieldset>
+    <fieldset class="aspect-checks"><legend>Aspek koreksi, bisa lebih dari satu</legend>{% for value in aspek %}<label class="check-option"><input type="checkbox" name="aspek_{{ item.id }}[]" value="{{ value }}" {% if value in corrections.get(item.id, []) %}checked{% endif %}> {{ value|replace('_',' ')|title }}</label>{% endfor %}</fieldset>
+    <label>Sentimen koreksi<select name="sentimen_{{ item.id }}"><option value="">Tidak dikoreksi</option>{% for value in sentimen %}<option value="{{ value }}" {% if item.sentimen_koreksi == value %}selected{% endif %}>{{ value|title }}</option>{% endfor %}</select></label>
+    <label>Catatan<input type="text" name="catatan_{{ item.id }}" maxlength="500" value="{{ item.catatan or '' }}" placeholder="Catatan koreksi"></label>
+  </div>
+</article>
+{% else %}<div class="flash flash-info">Tidak ada label pada filter ini</div>{% endfor %}
+</div>{% if rows %}<button class="button button-primary validation-save" type="submit">Simpan checklist v4 halaman ini</button>{% endif %}</form>
+<nav class="pagination">{% if page > 1 %}<a href="{{ url_for('validasi_v4.index',page=page-1,status=status_filter) }}">Sebelumnya</a>{% endif %}<span>Halaman {{ page }} / {{ pages }}</span>{% if page < pages %}<a href="{{ url_for('validasi_v4.index',page=page+1,status=status_filter) }}">Berikutnya</a>{% endif %}</nav>
+{% endif %}
+{% endblock %}

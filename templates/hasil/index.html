@@ -1,0 +1,113 @@
+{% extends "base.html" %} {% block title %}Hasil Klasifikasi — Nafinder{%
+endblock %} {% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Hasil analisis / model manual</p>
+  <h1>Yang terbaca dari ulasan</h1>
+  <p class="lede">
+    Ringkasan performa Multinomial Naive Bayes dengan TF-IDF dan Random
+    Oversampling pada data training
+  </p>
+</header>
+{% if evaluasi %}
+<div class="result-hero">
+  <div>
+    <span class="eyebrow">Akurasi keseluruhan</span
+    ><strong
+      >{{ '%.2f'|format(evaluasi.accuracy * 100) }}<small>%</small></strong
+    >
+    <p class="muted">Kemampuan model mengenali label pada data testing</p>
+  </div>
+  <div class="result-stats">
+    <div>
+      <span>Macro F1</span
+      ><strong>{{ '%.4f'|format(evaluasi.f1_macro) }}</strong>
+    </div>
+    <div>
+      <span>Weighted F1</span
+      ><strong>{{ '%.4f'|format(evaluasi.f1_weighted) }}</strong>
+    </div>
+    <div>
+      <span>Label testing</span
+      ><strong>{{ "{:,}".format(evaluasi.jumlah_testing|int) }}</strong>
+    </div>
+  </div>
+</div>
+<div class="section-heading">
+  <div>
+    <p class="eyebrow">Pemeriksaan model</p>
+    <h2>Confusion matrix</h2>
+  </div>
+  <span class="muted">Baris aktual · kolom prediksi</span>
+</div>
+{% if cm and cm.matrix %}
+<div class="table-wrap">
+  <table class="data-table matrix-table">
+    <thead>
+      <tr>
+        <th>Aktual \ Prediksi</th>
+        {% for cls in cm.classes %}
+        <th>Prediksi {{ cls|title }}</th>
+        {% endfor %}
+        <th>Total aktual</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in cm.matrix %}{% set i=loop.index0 %}
+      <tr>
+        <th>Aktual {{ cm.classes[i]|title }}</th>
+        {% for value in row %}
+        <td {% if loop.index0 == i %}class="cell-diagonal"{% endif %}>
+          {{ "{:,}".format(value) }}
+        </td>
+        {% endfor %}
+        <td><strong>{{ "{:,}".format(row|sum) }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %} {% if cm and cm.per_class %}
+<div class="section-heading section-heading-spaced">
+  <div>
+    <p class="eyebrow">Detail</p>
+    <h2>Metrik per kelas</h2>
+  </div>
+</div>
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Kelas</th>
+        <th>Precision</th>
+        <th>Recall</th>
+        <th>F1</th>
+        <th>Support</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cls,met in cm.per_class.items() %}
+      <tr>
+        <td><span class="class-dot class-{{ cls }}">{{ cls|title }}</span></td>
+        <td>{{ '%.4f'|format(met.precision) }}</td>
+        <td>{{ '%.4f'|format(met.recall) }}</td>
+        <td>{{ '%.4f'|format(met.f1) }}</td>
+        <td>{{ "{:,}".format(met.support) }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="row-total">
+        <td><strong>Macro average</strong></td>
+        <td>{{ '%.4f'|format(evaluasi.precision_macro) }}</td>
+        <td>{{ '%.4f'|format(evaluasi.recall_macro) }}</td>
+        <td>{{ '%.4f'|format(evaluasi.f1_macro) }}</td>
+        <td>{{ "{:,}".format(evaluasi.jumlah_testing|int) }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% else %}
+<div class="flash flash-info">
+  Belum ada hasil klasifikasi. Jalankan pipeline dari halaman
+  <a href="{{ url_for('dataset.index') }}">Kelola Dataset</a>
+</div>
+{% endif %} {% endblock %}
