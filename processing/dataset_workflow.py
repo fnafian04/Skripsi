@@ -192,6 +192,26 @@ def list_datasets() -> list[dict[str, Any]]:
             'classified': meta.get('classified', False) or (is_active and state.get('classified', False)),
         })
 
+    # Sertakan dataset dari registry yang tidak dibundel ke Git (mis. dataset_semprog.csv di Vercel)
+    for name, meta in reg.items():
+        if name in seen_names or not isinstance(meta, dict):
+            continue
+        is_active = (name == active_name)
+        size_b = int(meta.get('size_bytes') or 0)
+        is_prep = bool(meta.get('preprocessed', False) or (is_active and state.get('preprocessed', False)))
+        is_cls = bool(meta.get('classified', False) or (is_active and state.get('classified', False)))
+        datasets.append({
+            'name': name,
+            'size_bytes': size_b,
+            'size_formatted': _format_size(size_b),
+            'uploaded_at': meta.get('uploaded_at', '-'),
+            'row_count': int(meta.get('row_count') or 0),
+            'is_active': is_active,
+            'has_labels': is_prep,
+            'preprocessed': is_prep,
+            'classified': is_cls,
+        })
+
     if reg_changed:
         _write_registry(reg)
 
@@ -201,12 +221,13 @@ def list_datasets() -> list[dict[str, Any]]:
 def activate_dataset(filename: str) -> dict:
     """Aktifkan salah satu dataset dari repositori datasets."""
     p = get_dataset_path(filename)
-    if not p or not p.is_file():
+    fname = Path(filename).name
+    reg = _read_registry()
+    if (not p or not p.is_file()) and fname not in reg:
         raise FileNotFoundError(f"Dataset '{filename}' tidak ditemukan di repositori.")
 
-    fname = p.name
-    reg = _read_registry()
     meta = reg.get(fname, {})
+    size_bytes = p.stat().st_size if (p and p.is_file()) else int(meta.get('size_bytes') or 0)
 
     cache_file = UPLOAD / f'.labels_{fname}.pkl'
     bundled_cache = BASE / 'uploads_tmp' / f'.labels_{fname}.pkl'
@@ -219,14 +240,22 @@ def activate_dataset(filename: str) -> dict:
             pass
 
     # Sinkronisasi ke staging SOURCE untuk kompatibilitas script lama
-    try:
-        shutil.copy2(p, SOURCE)
-    except Exception:
-        pass
+    if p and p.is_file():
+        try:
+            shutil.copy2(p, SOURCE)
+        except Exception:
+            pass
 
     is_prep = bool(has_labels or meta.get('preprocessed', False))
     is_cls = bool(meta.get('classified', False))
-    reset_state(dataset_name=fname, dataset_size_bytes=p.stat().st_size)
+    reset_state(dataset_name=fname, dataset_size_bytes=size_bytes)
+    extra_results = {}
+    if meta.get('accuracy') is not None and meta.get('f1_macro') is not None:
+        extra_results['class_checkpoint_result'] = (
+            f"Akurasi: {float(meta['accuracy']) * 100:.2f}%, Macro F1: {float(meta['f1_macro']):.4f}"
+        )
+    if meta.get('labels_count') is not None:
+        extra_results['checkpoint_result'] = f"{int(meta['labels_count']):,} label tersimpan"
     write_state(
         preprocessed=is_prep,
         classified=is_cls,
@@ -240,7 +269,8 @@ def activate_dataset(filename: str) -> dict:
         message=f"Dataset '{fname}' diaktifkan — " + (
             "siap untuk klasifikasi atau preprocessing ulang"
             if is_prep else "jalankan tahap preprocessing terlebih dahulu"
-        )
+        ),
+        **extra_results,
     )
     return read_state()
 

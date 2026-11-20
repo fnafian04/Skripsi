@@ -37,7 +37,7 @@ def index():
         flash(f"Dataset final '{FIXED_DATASET}' tidak tersedia di penyimpanan aplikasi.", 'error')
     elif not is_process_active():
         active_name = current_state.get('dataset_name')
-        if not active_name or wf.get_dataset_path(active_name) is None:
+        if not active_name or (wf.get_dataset_path(active_name) is None and active_name not in PROTECTED_DATASETS):
             fallback_name = PRIMARY_DATASET if primary_path is not None else FIXED_DATASET
             wf.activate_dataset(fallback_name)
             current_state = read_state()

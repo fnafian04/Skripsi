@@ -6,7 +6,10 @@ import pickle
 import threading
 import pandas as pd
 from flask import Blueprint, render_template, session, redirect, url_for, request
+from sqlalchemy import func, or_
 
+from db import SessionLocal
+from models import Kafe, LabelSentimen, Ulasan
 from processing import dataset_workflow as wf
 from processing.workflow_state import read_state
 
@@ -152,6 +155,31 @@ def index():
         })
         if "aspek" in labels_df.columns:
             aspek_options = sorted(labels_df["aspek"].dropna().unique().tolist())
+    else:
+        # Fallback database (mis. saat berjalan di Vercel tanpa cache .pkl lokal)
+        aspek_options = [
+            "fasilitas_wfc", "harga", "kebersihan",
+            "makanan_minuman", "pelayanan", "suasana",
+        ]
+        db = SessionLocal()
+        try:
+            ulasan_valid_cnt = db.query(func.count(Ulasan.id)).scalar() or 0
+            label_cnt = db.query(func.count(LabelSentimen.id)).scalar() or 0
+            if label_cnt > 0 or ulasan_valid_cnt > 0:
+                ds_name = active_name or "dataset_semprog.csv"
+                reg_meta = wf._read_registry().get(ds_name, {})
+                raw_total_est = int(reg_meta.get("row_count") or 0)
+                if not raw_total_est:
+                    raw_total_est = 109778 if ds_name == "dataset_semprog.csv" else ulasan_valid_cnt
+                if summary is None:
+                    summary = {
+                        "ulasan_awal": raw_total_est,
+                        "ulasan_valid": ulasan_valid_cnt,
+                        "nama_dataset": ds_name,
+                    }
+                summary.setdefault("label", label_cnt)
+        finally:
+            db.close()
 
     if tab == "raw" and raw_df is not None:
         view_df = raw_df
@@ -179,6 +207,30 @@ def index():
                 "valid": row.get("valid", True),
             })
         page_items = _page_window(page, total_pages)
+
+    elif tab == "raw" and raw_df is None:
+        db = SessionLocal()
+        try:
+            q = db.query(Ulasan, Kafe.nama).join(Kafe, Ulasan.kafe_id == Kafe.id)
+            if search_q:
+                like_q = f"%{search_q}%"
+                q = q.filter(or_(Kafe.nama.ilike(like_q), Ulasan.teks.ilike(like_q)))
+            total_rows = q.count()
+            total_pages = max(1, math.ceil(total_rows / PER_PAGE))
+            page = min(page, total_pages)
+            start = (page - 1) * PER_PAGE
+            rows_db = q.order_by(Ulasan.id.asc()).offset(start).limit(PER_PAGE).all()
+            for offset, (u_row, k_nama) in enumerate(rows_db, start=start + 1):
+                raw_rows.append({
+                    "no": offset,
+                    "nama_kafe": k_nama or "—",
+                    "teks_ulasan": u_row.teks or "—",
+                    "rating_ulasan": u_row.rating if u_row.rating is not None else "—",
+                    "valid": u_row.valid,
+                })
+            page_items = _page_window(page, total_pages)
+        finally:
+            db.close()
 
     elif labels_df is not None:
         tab = "processed"
@@ -226,6 +278,61 @@ def index():
                 "cocok": (pred_sent == actual_sent),
             })
         page_items = _page_window(page, total_pages)
+
+    else:
+        tab = "processed"
+        db = SessionLocal()
+        try:
+            q = (
+                db.query(LabelSentimen, Ulasan.review_id, Ulasan.teks_preprocessed, Kafe.nama)
+                .join(Ulasan, LabelSentimen.ulasan_id == Ulasan.id)
+                .join(Kafe, LabelSentimen.kafe_id == Kafe.id)
+            )
+            if filter_aspek:
+                q = q.filter(LabelSentimen.aspek == filter_aspek)
+            if filter_sentimen:
+                q = q.filter(LabelSentimen.sentimen == filter_sentimen)
+            if search_q:
+                like_q = f"%{search_q}%"
+                q = q.filter(
+                    or_(
+                        Kafe.nama.ilike(like_q),
+                        LabelSentimen.sub_kalimat.ilike(like_q),
+                        Ulasan.teks_preprocessed.ilike(like_q),
+                    )
+                )
+            total_rows = q.count()
+            total_pages = max(1, math.ceil(total_rows / PER_PAGE))
+            page = min(page, total_pages)
+            start = (page - 1) * PER_PAGE
+            rows_db = q.order_by(LabelSentimen.id.asc()).offset(start).limit(PER_PAGE).all()
+
+            model, vectorizer = _get_runtime_predictor()
+            preds: list[str] = []
+            if model is not None and vectorizer is not None and rows_db:
+                texts = [str(u_prep or "") for (_, _, u_prep, _) in rows_db]
+                try:
+                    preds = [str(p) for p in model.predict(vectorizer.transform(texts))]
+                except Exception:
+                    preds = []
+
+            for idx, (lbl, rev_id, u_prep, k_nama) in enumerate(rows_db):
+                actual_sent = str(lbl.sentimen or "—").lower()
+                pred_sent = preds[idx] if idx < len(preds) else actual_sent
+                label_rows.append({
+                    "no": start + idx + 1,
+                    "review_id": rev_id if rev_id is not None else (start + idx),
+                    "nama_kafe": k_nama or "—",
+                    "sub_kalimat": lbl.sub_kalimat or "—",
+                    "teks_preprocessed": u_prep or "—",
+                    "aspek": lbl.aspek or "—",
+                    "sentimen": actual_sent,
+                    "prediksi_mnb": pred_sent,
+                    "cocok": (pred_sent == actual_sent),
+                })
+            page_items = _page_window(page, total_pages)
+        finally:
+            db.close()
 
     return render_template(
         "preprocessing/index.html",
