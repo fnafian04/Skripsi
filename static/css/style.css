@@ -1,19 +1,20 @@
 :root {
-  --paper: #f7f4ee;
-  --paper-deep: #ece6db;
+  --paper: #f2f5f7;
+  --paper-deep: #e4ecf0;
   --card: #ffffff;
-  --ink: #1e293b;
-  --ink-soft: #4e5b6e;
-  --muted: #7b8494;
-  --line: #e3dbce;
-  --espresso: #263f63;
-  --espresso-deep: #182a45;
-  --navy-soft: #eef2f7;
-  --matcha: #3d7a55;
-  --matcha-pale: #e6f2ea;
-  --terracotta: #c8654b;
-  --terracotta-pale: #faeae5;
-  --gold: #d29d4a;
+  --ink: #162e3a;
+  --ink-soft: #425d6b;
+  --muted: #6b8391;
+  --line: #d3dfe6;
+  --espresso: #10586e;
+  --espresso-deep: #0b4354;
+  --sinta-cyan: #50acc7;
+  --navy-soft: #e5f3f7;
+  --matcha: #1b8a7a;
+  --matcha-pale: #e2f5f2;
+  --terracotta: #d96b52;
+  --terracotta-pale: #fdf0ec;
+  --gold: #f0ad4e;
   --serif: "Plus Jakarta Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --sans: "Plus Jakarta Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
 }
@@ -4156,4 +4157,265 @@ html[data-theme="dark"] .rank-box-top-3 {
   .sinta-summary-strip {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* =========================================================
+   SINTA Smooth Petrol-Teal, Cerulean & Warm Amber Theme
+   ========================================================= */
+body {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, .92), transparent 28rem),
+    radial-gradient(circle at 92% 14%, rgba(80, 172, 199, .14), transparent 26rem),
+    var(--paper);
+}
+
+/* Sidebar: SINTA Petrol Teal (#10586e -> #0b4354) */
+.sidebar {
+  background: linear-gradient(168deg, #146881 0%, #10586e 58%, #0b4354 100%);
+  border-right: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 10px 0 28px rgba(11, 67, 84, .14);
+}
+
+.sidebar-bottom {
+  background: linear-gradient(180deg, rgba(11, 67, 84, 0), #0b4354 28%);
+}
+
+.sidebar-label {
+  color: #9ad4e5;
+}
+
+.links a {
+  color: #d9eff6;
+}
+
+.links a:hover {
+  background: rgba(80, 172, 199, .18);
+  color: #ffffff;
+}
+
+.links a.is-active {
+  background: rgba(240, 173, 78, .2);
+  border-color: rgba(240, 173, 78, .4);
+  box-shadow: inset 3px 0 0 #f0ad4e;
+  color: #ffffff;
+}
+
+.nav-icon {
+  color: #9fd5e5;
+}
+
+.links a.is-active .nav-icon {
+  color: #f0ad4e;
+}
+
+.brand-mark {
+  background: #f0ad4e;
+  color: #0b4354;
+}
+
+.brand em,
+.brand-copy em {
+  color: #b3e0ee;
+}
+
+/* Featured Stat Card: SINTA Cerulean Blue (#3c99b5 -> #50acc7) */
+.stat-card-featured {
+  background: linear-gradient(145deg, #3c99b5, #50acc7);
+  border-color: #3c99b5;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(60, 153, 181, .2);
+}
+
+.stat-card-featured .stat-kicker {
+  color: #fff5e4;
+}
+
+.stat-card-featured span:last-child {
+  color: #eef9fc;
+}
+
+/* SINTA Insight Card & Warm Amber CTA Button */
+.panel-dark {
+  background: linear-gradient(155deg, #146881, #10586e);
+  border-color: #10586e;
+  color: #f4fbfd;
+  box-shadow: 0 12px 28px rgba(16, 88, 110, .18);
+}
+
+.panel-dark .eyebrow {
+  color: #8ee0f5;
+}
+
+.panel-dark h2 {
+  color: #ffffff;
+}
+
+.panel-dark p:not(.eyebrow) {
+  color: #d4ecf3;
+}
+
+.button-light {
+  background: #f0ad4e;
+  border-color: #f0ad4e;
+  color: #ffffff;
+  border-radius: 99px;
+  padding: .68rem 1.35rem;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(240, 173, 78, .28);
+}
+
+.button-light:hover {
+  background: #e09b3a;
+  border-color: #e09b3a;
+  color: #ffffff;
+}
+
+/* Uji Model Hero Card */
+.result-hero {
+  background: linear-gradient(150deg, #146881, #10586e);
+  border-radius: 18px;
+  color: #f4fbfd;
+  box-shadow: 0 12px 28px rgba(16, 88, 110, .16);
+}
+
+.result-hero .eyebrow {
+  color: #8ee0f5;
+}
+
+.result-hero strong {
+  color: #f0ad4e;
+}
+
+.result-hero .muted {
+  color: #d4ecf3;
+}
+
+.result-stats div {
+  border-left-color: rgba(255, 255, 255, .22);
+}
+
+.result-stats span {
+  color: #b7e1ee;
+}
+
+/* Tables, Tags, Badges, Inputs & Interactive Flow Nodes */
+.data-table th,
+.row-total td {
+  background: #e7f0f5;
+  color: #425d6b;
+}
+
+.data-table tbody tr:hover,
+.file-picker:hover {
+  background: #eef6fa;
+}
+
+.tag {
+  background: #e5eff4;
+  color: #355261;
+}
+
+.flash-info {
+  background: #e5f3f7;
+  border-left-color: #50acc7;
+  color: #163d4d;
+}
+
+.auth-benefits strong {
+  background: #f0ad4e;
+  color: #0b4354;
+}
+
+.auth-card input {
+  background: #f5f9fb;
+}
+
+.auth-card input:focus {
+  border-color: #10586e;
+  box-shadow: 0 0 0 3px rgba(16, 88, 110, .14);
+}
+
+.help-flow-node.is-active {
+  background: linear-gradient(145deg, #146881, #10586e);
+  border-color: #10586e;
+  box-shadow: 0 8px 20px rgba(16, 88, 110, .2);
+}
+
+.help-flow-node.is-active .help-flow-num {
+  background: #f0ad4e;
+  color: #0b4354;
+}
+
+.badge-done {
+  background: #e2f3f8;
+  color: #10586e;
+}
+
+/* Cohesive Petrol-Teal Dark Theme */
+html[data-theme="dark"] {
+  --paper: #0b1e27;
+  --paper-deep: #102935;
+  --card: #13313f;
+  --ink: #eaf6fa;
+  --ink-soft: #b6d2de;
+  --muted: #84a8b8;
+  --line: #21495a;
+  --navy-soft: #173c4d;
+  --espresso: #50acc7;
+  --espresso-deep: #3c99b5;
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(20, 104, 129, .35), transparent 28rem),
+    radial-gradient(circle at 95% 20%, rgba(80, 172, 199, .18), transparent 24rem),
+    var(--paper);
+}
+
+html[data-theme="dark"] .stat-card-featured {
+  background: linear-gradient(145deg, #2b829d, #3c99b5);
+  border-color: #3c99b5;
+}
+
+html[data-theme="dark"] .panel-dark,
+html[data-theme="dark"] .result-hero {
+  background: linear-gradient(145deg, #135d73, #0b3c4b);
+  border-color: #186b84;
+}
+
+html[data-theme="dark"] .button-light {
+  color: #0b2630;
+}
+
+html[data-theme="dark"] .data-table th,
+html[data-theme="dark"] .row-total td {
+  background: #173a4a;
+  color: #b6d2de;
+}
+
+html[data-theme="dark"] .data-table tbody tr:hover,
+html[data-theme="dark"] .file-picker:hover {
+  background: #1a4153;
+}
+
+html[data-theme="dark"] .tag {
+  background: #1b4254;
+  color: #d5ecf5;
+}
+
+html[data-theme="dark"] .flash-info {
+  background: #173c4d;
+  border-left-color: #50acc7;
+  color: #d5ecf5;
+}
+
+html[data-theme="dark"] .auth-card input {
+  background: #0e242f;
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .badge-done {
+  background: #173c4d;
+  color: #7dd3fc;
 }
