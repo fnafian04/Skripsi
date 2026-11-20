@@ -1,98 +1,119 @@
-{% extends "base.html" %} {% block title %}Coba Analisis Ulasan — Sistem Analisis Ulasan Kafe{% endblock %} {% block content %}
+{% extends "base.html" %} {% block title %}Coba Analisis Ulasan — Nafinder Sistem Rekomendasi Kafe WFC{% endblock %} {% block content %}
 <header class="page-intro">
   <p class="eyebrow">Coba fitur analisis</p>
   <h1>Analisis sebuah ulasan</h1>
-  <p class="lede">Masukkan ulasan tentang kafe untuk melihat topik yang disebutkan dan apakah pelanggan memuji atau mengeluh. Hasil ini adalah perkiraan sistem, bukan pengganti penilaian manusia.</p>
+  <p class="lede">Masukkan ulasan tentang kafe untuk melihat topik yang disebutkan dan apakah pelanggan memuji atau mengeluh. Hasil ini adalah perkiraan model Naive Bayes berdasarkan data latih penelitian.</p>
 </header>
 {% if evaluasi %}
 <section class="workflow-panel" id="uji-ulasan">
   <div class="section-heading">
-    <div><p class="eyebrow">Langkah 1</p><h2>Tulis ulasan yang ingin diperiksa</h2></div>
-    <span class="badge badge-matcha">Pujian / Keluhan</span>
+    <div><p class="eyebrow">Simulasi langsung</p><h2>Tulis ulasan yang ingin diperiksa</h2></div>
+    <span class="badge badge-matcha">Positif / Negatif</span>
   </div>
-  <p class="muted">Contoh: “Makanannya enak, harganya terjangkau, tetapi tempatnya sempit dan Wi-Fi-nya lambat.”</p>
+  <p class="muted">Klik salah satu contoh cepat di bawah atau ketik ulasan Anda sendiri:</p>
+  <div class="sample-chips" aria-label="Contoh ulasan cepat">
+    <button type="button" class="sample-chip" data-sample="Tempatnya nyaman banget buat nugas, wifinya kencang, colokan banyak, tapi kopinya agak mahal.">Ulasan Kontras WFC</button>
+    <button type="button" class="sample-chip" data-sample="Pelayanan ramah dan cepat, ruangan bersih, ac dingin, harga makanan juga terjangkau.">Pujian Lengkap</button>
+    <button type="button" class="sample-chip" data-sample="Tempatnya sempit dan berisik, wifi sering putus, pelayanannya lambat sekali.">Keluhan WFC</button>
+  </div>
   <form id="review-test-form">
     <label for="review-test-input">Isi ulasan</label>
-    <textarea id="review-test-input" rows="4" maxlength="2000" required placeholder="Tulis ulasan Anda di sini..."></textarea>
-    <button class="btn-action-active" type="submit">Lihat hasil ulasan</button>
+    <textarea id="review-test-input" rows="4" maxlength="2000" required placeholder="Contoh: Makanannya enak dan harganya terjangkau, tetapi tempatnya sempit dan Wi-Fi-nya lambat..."></textarea>
+    <div style="margin-top: 0.75rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+      <button class="btn-action-active" type="submit">Analisis Ulasan Sekarang</button>
+      <span class="muted" style="font-size: 0.8rem;">Maksimal 2.000 karakter</span>
+    </div>
   </form>
-  <div id="review-test-message" class="flash flash-info" hidden></div>
-  <div id="review-test-results" class="table-wrap" hidden>
-    <table class="data-table"><thead><tr><th>Bagian ulasan</th><th>Aspek</th><th>Hasil sentimen</th></tr></thead><tbody id="review-test-body"></tbody></table>
+  <div id="review-test-message" class="flash flash-info" hidden style="margin-top: 1rem;"></div>
+  <div id="review-test-results" class="table-wrap" hidden style="margin-top: 1rem;">
+    <table class="data-table"><thead><tr><th>Sub-kalimat ulasan</th><th>Aspek terdeteksi</th><th>Prediksi sentimen</th></tr></thead><tbody id="review-test-body"></tbody></table>
   </div>
 </section>
 
 <div class="section-heading section-heading-spaced">
-  <div><p class="eyebrow">Hasil pengujian</p><h2>Seberapa sering sistem menjawab dengan tepat?</h2></div>
+  <div><p class="eyebrow">Hasil pengujian model</p><h2>Seberapa tepat model membaca ulasan?</h2></div>
 </div>
 <div class="result-hero">
   <div>
-    <span class="eyebrow">Ketepatan hasil pada data uji</span
-    ><strong
-      >{{ '%.2f'|format(evaluasi.accuracy * 100) }}<small>%</small></strong
-    >
-    <p class="muted">Dari setiap 100 ulasan berlabel yang dipakai untuk pengujian, sekitar {{ '%.0f'|format(evaluasi.accuracy * 100) }} hasilnya sesuai dengan label pemeriksa.</p>
+    <span class="eyebrow">Ketepatan hasil pada data uji</span>
+    <strong>{{ '%.2f'|format(evaluasi.accuracy * 100) }}<small>%</small></strong>
+    <p class="muted">Dari setiap 100 sub-kalimat uji yang tidak ikut dilatih, sekitar {{ '%.0f'|format(evaluasi.accuracy * 100) }} diprediksi sesuai dengan label pemeriksa.</p>
   </div>
   <div class="result-stats">
     <div>
-      <span>F1 seimbang antarpendapat</span
-      ><strong>{{ '%.4f'|format(evaluasi.f1_macro) }}</strong>
+      <span>F1 seimbang (Macro)</span>
+      <strong>{{ '%.4f'|format(evaluasi.f1_macro) }}</strong>
     </div>
     <div>
-      <span>F1 sesuai jumlah contoh</span
-      ><strong>{{ '%.4f'|format(evaluasi.f1_weighted) }}</strong>
+      <span>F1 berbobot (Weighted)</span>
+      <strong>{{ '%.4f'|format(evaluasi.f1_weighted) }}</strong>
     </div>
     <div>
-      <span>Jumlah ulasan yang diuji</span
-      ><strong>{{ "{:,}".format(evaluasi.jumlah_testing|int) }}</strong>
+      <span>Jumlah data uji</span>
+      <strong>{{ "{:,}".format(evaluasi.jumlah_testing|int) }}</strong>
     </div>
   </div>
 </div>
-<div class="doc-callout">
-  <strong>Arti angka-angka ini</strong>
-  <p><strong>Ketepatan</strong> menunjukkan seberapa sering hasil sistem cocok dengan jawaban pemeriksa.
-    <strong>F1 seimbang</strong> memeriksa kemampuan sistem mengenali pujian dan keluhan secara setara.
-    <strong>F1 sesuai jumlah contoh</strong> juga menilai keduanya, tetapi memperhitungkan banyaknya contoh tiap jenis.
-    Semua angka dihitung dari ulasan berlabel yang tidak dipakai saat sistem belajar.</p>
-</div>
-<div class="section-heading">
-  <div>
-    <p class="eyebrow">Rincian pengujian</p>
-    <h2>Hasil untuk tiap jenis pendapat</h2>
-  </div>
-  <span class="muted">Baris adalah jawaban pemeriksa; kolom adalah jawaban sistem.</span>
-</div>
-{% if cm and cm.matrix %}
-<div class="table-wrap">
-  <table class="data-table matrix-table">
-    <thead>
-      <tr>
-        <th>Jawaban sebenarnya</th>
-        {% for cls in cm.classes %}
-        <th>Diprediksi {{ cls|title }}</th>
-        {% endfor %}
-        <th>Jumlah contoh</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in cm.matrix %}{% set i=loop.index0 %}
-      <tr>
-        <th>{{ cm.classes[i]|title }}</th>
-        {% for value in row %}
-        <td {% if loop.index0 == i %}class="cell-diagonal"{% endif %}>
-          {{ "{:,}".format(value) }}
-        </td>
-        {% endfor %}
-        <td><strong>{{ "{:,}".format(row|sum) }}</strong></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %} {% if cm and cm.per_class %}
+
+{% if cm and cm.per_class %}
+<section class="sinta-analytics-grid" style="margin-bottom: 2rem;">
+  <article class="sinta-chart-card">
+    <div class="sinta-card-header">
+      <div>
+        <p class="eyebrow">Grafik Metrik SINTA</p>
+        <h2>Perbandingan Precision, Recall & F1-Score</h2>
+      </div>
+      <span class="sinta-pill sinta-pill-matcha">Uji Model</span>
+    </div>
+    <div id="hasil-metrics-chart" class="sinta-chart-canvas"></div>
+  </article>
+
+  <article class="sinta-chart-card">
+    <div class="sinta-card-header">
+      <div>
+        <p class="eyebrow">Matriks Kebingungan</p>
+        <h2>Confusion Matrix (N={{ "{:,}".format(evaluasi.jumlah_testing|int) }})</h2>
+      </div>
+      <span class="sinta-pill">Aktual vs Prediksi</span>
+    </div>
+    {% if cm and cm.matrix %}
+    <div class="table-wrap" style="border-radius: 12px;">
+      <table class="data-table matrix-table" style="min-width: 0;">
+        <thead>
+          <tr>
+            <th>Aktual</th>
+            {% for cls in cm.classes %}
+            <th>Pred. {{ cls|title }}</th>
+            {% endfor %}
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in cm.matrix %}{% set i=loop.index0 %}
+          <tr>
+            <th>{{ cm.classes[i]|title }}</th>
+            {% for value in row %}
+            <td {% if loop.index0 == i %}class="cell-diagonal"{% endif %}>
+              {{ "{:,}".format(value) }}
+            </td>
+            {% endfor %}
+            <td><strong>{{ "{:,}".format(row|sum) }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    <div class="doc-callout" style="margin-top: 1rem;">
+      <strong>Cara membaca</strong>
+      <p style="margin-bottom:0;">Angka diagonal berwarna hijau adalah prediksi benar. Di luar diagonal menunjukkan ketidaksesuaian antar kelas.</p>
+    </div>
+  </article>
+</section>
+
 <div class="section-heading section-heading-spaced">
   <div>
-    <p class="eyebrow">Detail</p>
+    <p class="eyebrow">Detail metrik</p>
     <h2>Rincian hasil per jenis sentimen</h2>
   </div>
 </div>
@@ -101,10 +122,10 @@
     <thead>
       <tr>
         <th>Kelas</th>
-        <th>Ketepatan prediksi</th>
-        <th>Jumlah yang berhasil dikenali</th>
-        <th>Nilai gabungan</th>
-        <th>Jumlah contoh</th>
+        <th>Precision</th>
+        <th>Recall</th>
+        <th>F1-Score</th>
+        <th>Jumlah contoh (Support)</th>
       </tr>
     </thead>
     <tbody>
@@ -118,7 +139,7 @@
       </tr>
       {% endfor %}
       <tr class="row-total">
-        <td><strong>Rata-rata seimbang</strong></td>
+        <td><strong>Rata-rata seimbang (Macro Avg)</strong></td>
         <td>{{ '%.4f'|format(evaluasi.precision_macro) }}</td>
         <td>{{ '%.4f'|format(evaluasi.recall_macro) }}</td>
         <td>{{ '%.4f'|format(evaluasi.f1_macro) }}</td>
@@ -130,53 +151,117 @@
 {% endif %}
 {% else %}
 <div class="flash flash-info">
-  Hasil pengujian belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data penelitian</a> untuk memeriksa status model.
+  Hasil pengujian belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data yang digunakan</a> untuk memeriksa status model.
 </div>
 {% endif %} {% endblock %}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
 (function () {
   const form = document.getElementById('review-test-form');
-  if (!form) return;
   const input = document.getElementById('review-test-input');
   const message = document.getElementById('review-test-message');
   const results = document.getElementById('review-test-results');
   const body = document.getElementById('review-test-body');
-  form.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    message.hidden = false;
-    message.textContent = 'Menganalisis ulasan...';
-    results.hidden = true;
-    try {
-      const response = await fetch('{{ url_for("hasil.test_review") }}', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-        body: JSON.stringify({text: input.value})
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Ulasan tidak dapat diproses.');
-      body.textContent = '';
-      data.predictions.forEach(function (item) {
-        const row = document.createElement('tr');
-        [item.sub_kalimat, item.aspek.replaceAll('_', ' ')].forEach(function (value) {
-          const cell = document.createElement('td');
-          cell.textContent = value;
-          row.appendChild(cell);
-        });
-        const sentiment = document.createElement('td');
-        const badge = document.createElement('span');
-        badge.className = 'class-dot class-' + item.sentimen;
-        badge.textContent = item.sentimen;
-        sentiment.appendChild(badge);
-        row.appendChild(sentiment);
-        body.appendChild(row);
-      });
-      message.hidden = true;
-      results.hidden = false;
-    } catch (error) {
-      message.textContent = error.message;
-    }
+
+  document.querySelectorAll('.sample-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      if (input) {
+        input.value = chip.dataset.sample || '';
+        input.focus();
+      }
+    });
   });
+
+  if (form) {
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      message.hidden = false;
+      message.className = 'flash flash-info';
+      message.textContent = 'Menganalisis ulasan...';
+      results.hidden = true;
+      try {
+        const response = await fetch('{{ url_for("hasil.test_review") }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+          body: JSON.stringify({text: input.value})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Ulasan tidak dapat diproses.');
+        body.textContent = '';
+        data.predictions.forEach(function (item) {
+          const row = document.createElement('tr');
+          [item.sub_kalimat, item.aspek.replaceAll('_', ' ')].forEach(function (value) {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            row.appendChild(cell);
+          });
+          const sentiment = document.createElement('td');
+          const badge = document.createElement('span');
+          badge.className = 'class-dot class-' + item.sentimen;
+          badge.textContent = item.sentimen;
+          sentiment.appendChild(badge);
+          row.appendChild(sentiment);
+          body.appendChild(row);
+        });
+        message.hidden = true;
+        results.hidden = false;
+      } catch (error) {
+        message.className = 'flash flash-error';
+        message.textContent = error.message;
+      }
+    });
+  }
+
+  {% if cm and cm.per_class %}
+  const chartEl = document.getElementById('hasil-metrics-chart');
+  if (chartEl && typeof ApexCharts !== 'undefined') {
+    const classNames = [
+      {% for cls in cm.per_class.keys() %}{{ (cls|title)|tojson }},{% endfor %}
+      'Macro Avg'
+    ];
+    const precisions = [
+      {% for met in cm.per_class.values() %}{{ ('%.2f'|format(met.precision * 100))|float }},{% endfor %}
+      {{ ('%.2f'|format(evaluasi.precision_macro * 100))|float }}
+    ];
+    const recalls = [
+      {% for met in cm.per_class.values() %}{{ ('%.2f'|format(met.recall * 100))|float }},{% endfor %}
+      {{ ('%.2f'|format(evaluasi.recall_macro * 100))|float }}
+    ];
+    const f1s = [
+      {% for met in cm.per_class.values() %}{{ ('%.2f'|format(met.f1 * 100))|float }},{% endfor %}
+      {{ ('%.2f'|format(evaluasi.f1_macro * 100))|float }}
+    ];
+
+    let metricChart = null;
+    function renderMetricChart() {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      const textColor = isDark ? '#b9c7da' : '#4a5568';
+      const gridColor = isDark ? '#2d3d56' : '#e6dfd3';
+      if (metricChart) metricChart.destroy();
+      metricChart = new ApexCharts(chartEl, {
+        series: [
+          { name: 'Precision (%)', data: precisions },
+          { name: 'Recall (%)', data: recalls },
+          { name: 'F1-Score (%)', data: f1s }
+        ],
+        chart: { type: 'bar', height: 290, toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit' },
+        theme: { mode: isDark ? 'dark' : 'light' },
+        colors: ['#2b547e', '#3d7a55', '#d29d4a'],
+        plotOptions: { bar: { columnWidth: '62%', borderRadius: 5, borderRadiusApplication: 'end' } },
+        dataLabels: { enabled: false },
+        xaxis: { categories: classNames, labels: { style: { colors: textColor, fontWeight: 600 } } },
+        yaxis: { min: 0, max: 100, labels: { formatter: v => Math.round(v) + '%', style: { colors: textColor } } },
+        grid: { borderColor: gridColor, strokeDashArray: 4 },
+        legend: { position: 'top', horizontalAlign: 'right', labels: { colors: textColor } },
+        tooltip: { y: { formatter: val => val + '%' } }
+      });
+      metricChart.render();
+    }
+    renderMetricChart();
+    new MutationObserver(renderMetricChart).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+  {% endif %}
 }());
 </script>
 {% endblock %}

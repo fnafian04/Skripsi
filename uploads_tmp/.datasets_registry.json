@@ -2,7 +2,9 @@
   "dataset_semprog.csv": {
     "row_count": 109778,
     "size_bytes": 28225343,
-    "uploaded_at": "2026-10-27 01:27"
+    "uploaded_at": "2026-10-27 01:27",
+    "preprocessed": false,
+    "classified": false
   },
   "dataset_Nov_preprocessed.csv": {
     "size_bytes": 929550,
@@ -13,20 +15,5 @@
     "labels_count": 2000,
     "accuracy": 0.9033,
     "f1_macro": 0.9033
-  },
-  "dataset_Nov_label_binary_2000.csv": {
-    "size_bytes": 912088,
-    "uploaded_at": "2026-11-18 11:02",
-    "row_count": 2000,
-    "preprocessed": false,
-    "classified": false
-  },
-  "dataset_Nov_label_binary_2000_final.csv": {
-    "size_bytes": 929550,
-    "uploaded_at": "2026-11-18 11:02",
-    "row_count": 2000,
-    "preprocessed": true,
-    "classified": false,
-    "labels_count": 2000
   }
 }

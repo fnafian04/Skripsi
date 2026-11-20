@@ -19,14 +19,16 @@ import json
 import os
 import pickle
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import insert, text
 from werkzeug.utils import secure_filename
 
 from db import engine
+from models.tables import EvaluasiModel, LabelSentimen, Ulasan
 from processing.classification import fit_evaluate_manual
 from processing.preprocessing import preprocess_and_label, REQUIRED_RAW
 from processing.text_processing import (
@@ -139,7 +141,7 @@ def dataset_aktif_path() -> Path | None:
 
 
 def list_datasets() -> list[dict[str, Any]]:
-    """Daftar seluruh file dataset CSV yang ada di folder repositori uploads_tmp/datasets/."""
+    """Daftar seluruh file dataset CSV yang ada di folder repositori datasets."""
     reg = _read_registry()
     state = read_state()
     active_name = state.get('dataset_name')
@@ -147,7 +149,14 @@ def list_datasets() -> list[dict[str, Any]]:
     datasets = []
     reg_changed = False
 
-    csv_files = sorted(DATASETS_DIR.glob('*.csv'), key=lambda p: p.stat().st_mtime, reverse=True)
+    seen_names: set[str] = set()
+    csv_files: list[Path] = []
+    for folder in (DATASETS_DIR, BASE / 'uploads_tmp' / 'datasets'):
+        if folder.is_dir():
+            for p in sorted(folder.glob('*.csv'), key=lambda fp: fp.stat().st_mtime, reverse=True):
+                if p.name not in seen_names:
+                    seen_names.add(p.name)
+                    csv_files.append(p)
 
     for p in csv_files:
         name = p.name
@@ -167,6 +176,8 @@ def list_datasets() -> list[dict[str, Any]]:
             reg_changed = True
 
         cache_file = UPLOAD / f'.labels_{name}.pkl'
+        bundled_cache = BASE / 'uploads_tmp' / f'.labels_{name}.pkl'
+        has_labels = cache_file.exists() or bundled_cache.exists()
         is_active = (name == active_name)
 
         datasets.append({
@@ -176,8 +187,8 @@ def list_datasets() -> list[dict[str, Any]]:
             'uploaded_at': meta.get('uploaded_at', '-'),
             'row_count': meta.get('row_count', 0),
             'is_active': is_active,
-            'has_labels': cache_file.exists(),
-            'preprocessed': meta.get('preprocessed', False) or (is_active and state.get('preprocessed', False)),
+            'has_labels': has_labels,
+            'preprocessed': meta.get('preprocessed', False) or has_labels or (is_active and state.get('preprocessed', False)),
             'classified': meta.get('classified', False) or (is_active and state.get('classified', False)),
         })
 
@@ -198,10 +209,14 @@ def activate_dataset(filename: str) -> dict:
     meta = reg.get(fname, {})
 
     cache_file = UPLOAD / f'.labels_{fname}.pkl'
-    has_labels = cache_file.exists()
-    if has_labels:
-        # Salin label cache ke file default
-        shutil.copy2(cache_file, CACHE)
+    bundled_cache = BASE / 'uploads_tmp' / f'.labels_{fname}.pkl'
+    src_cache = cache_file if cache_file.exists() else (bundled_cache if bundled_cache.exists() else None)
+    has_labels = src_cache is not None
+    if src_cache and src_cache != CACHE:
+        try:
+            shutil.copy2(src_cache, CACHE)
+        except OSError:
+            pass
 
     # Sinkronisasi ke staging SOURCE untuk kompatibilitas script lama
     try:
@@ -209,13 +224,22 @@ def activate_dataset(filename: str) -> dict:
     except Exception:
         pass
 
-    state = reset_state(dataset_name=fname, dataset_size_bytes=p.stat().st_size)
+    is_prep = bool(has_labels or meta.get('preprocessed', False))
+    is_cls = bool(meta.get('classified', False))
+    reset_state(dataset_name=fname, dataset_size_bytes=p.stat().st_size)
     write_state(
-        preprocessed=has_labels or meta.get('preprocessed', False),
-        classified=meta.get('classified', False),
-        message=f"Dataset '{fname}' diaktifkan, " + (
+        preprocessed=is_prep,
+        classified=is_cls,
+        percent=100 if is_cls else (60 if is_prep else 0),
+        checkpoint=6 if is_prep else 0,
+        checkpoint_title='Preprocessing selesai' if is_prep else 'Belum berjalan',
+        checkpoint_action='Siap untuk klasifikasi atau preprocessing ulang' if is_prep else 'Klik Jalankan Preprocessing untuk memulai',
+        class_checkpoint=5 if is_cls else 0,
+        class_checkpoint_title='Klasifikasi selesai' if is_cls else 'Belum berjalan',
+        class_checkpoint_action='Model selesai dievaluasi' if is_cls else ('Siap dijalankan' if is_prep else 'Menunggu preprocessing selesai'),
+        message=f"Dataset '{fname}' diaktifkan — " + (
             "siap untuk klasifikasi atau preprocessing ulang"
-            if has_labels else "jalankan tahap preprocessing"
+            if is_prep else "jalankan tahap preprocessing terlebih dahulu"
         )
     )
     return read_state()
@@ -366,10 +390,10 @@ def _store_preprocessed_labels(labels: pd.DataFrame) -> tuple[int, int, int]:
             'address': address,
             'rating': round(float(rates.mean()), 1) if len(rates) else None,
             'count': int(group['review_id'].nunique()),
-            'hours': int('24 jam' in blob or '24jam' in blob),
-            'wifi': int('wifi' in blob or 'wi-fi' in blob or 'internet' in blob),
-            'outlet': int(any(q in blob for q in ('colokan', 'stopkontak', 'charger'))),
-            'desk': int(any(q in blob for q in ('meja', 'kursi', 'nugas', 'laptop', 'wfc', 'kerja'))),
+            'hours': bool('24 jam' in blob or '24jam' in blob),
+            'wifi': bool('wifi' in blob or 'wi-fi' in blob or 'internet' in blob),
+            'outlet': bool(any(q in blob for q in ('colokan', 'stopkontak', 'charger'))),
+            'desk': bool(any(q in blob for q in ('meja', 'kursi', 'nugas', 'laptop', 'wfc', 'kerja'))),
         })
 
     with engine.begin() as conn:
@@ -388,18 +412,18 @@ def _store_preprocessed_labels(labels: pd.DataFrame) -> tuple[int, int, int]:
             if pd.notna(rating):
                 rating_value = max(1, min(5, int(round(float(rating)))))
             review_rows.append({
-                'kid': ids[str(r.placeId)],
-                'rid': int(r.review_id),
-                'text': source_text[:60000],
+                'kafe_id': ids[str(r.placeId)],
+                'review_id': int(r.review_id),
+                'teks': source_text[:60000],
                 'rating': rating_value,
+                'tanggal': None,
+                'teks_preprocessed': str(r.teks_preprocessed)[:60000],
+                'valid': True,
             })
 
-        ins_review = text(
-            'INSERT INTO ulasan(kafe_id,review_id,teks,rating,tanggal,teks_preprocessed,valid) '
-            'VALUES(:kid,:rid,:text,:rating,NULL,:text,1)'
-        )
-        for i in range(0, len(review_rows), 2000):
-            conn.execute(ins_review, review_rows[i:i + 2000])
+        ins_review = insert(Ulasan)
+        for i in range(0, len(review_rows), 1000):
+            conn.execute(ins_review, review_rows[i:i + 1000])
 
         uid = {
             (int(k), int(r)): int(i)
@@ -412,19 +436,16 @@ def _store_preprocessed_labels(labels: pd.DataFrame) -> tuple[int, int, int]:
             ulasan_id = uid.get(key)
             if ulasan_id:
                 label_rows.append({
-                    'uid': ulasan_id,
-                    'kid': key[0],
-                    'sub': str(r.sub_kalimat)[:512],
-                    'aspect': r.aspek,
-                    'sent': r.sentimen,
+                    'ulasan_id': ulasan_id,
+                    'kafe_id': key[0],
+                    'sub_kalimat': str(r.sub_kalimat)[:512],
+                    'aspek': r.aspek,
+                    'sentimen': r.sentimen,
                 })
 
-        ins_label = text(
-            'INSERT INTO label_sentimen(ulasan_id,kafe_id,sub_kalimat,aspek,sentimen) '
-            'VALUES(:uid,:kid,:sub,:aspect,:sent)'
-        )
-        for i in range(0, len(label_rows), 3000):
-            conn.execute(ins_label, label_rows[i:i + 3000])
+        ins_label = insert(LabelSentimen)
+        for i in range(0, len(label_rows), 1500):
+            conn.execute(ins_label, label_rows[i:i + 1500])
 
         conn.execute(_get_skor_aspek_sql(include_netral=False))
 
@@ -432,7 +453,7 @@ def _store_preprocessed_labels(labels: pd.DataFrame) -> tuple[int, int, int]:
 
 
 def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tuple[int, int, int]:
-    """Simpan label preprocessing ke MySQL: kafe, ulasan, label_sentimen, skor_aspek."""
+    """Simpan label preprocessing ke database: kafe, ulasan, label_sentimen, skor_aspek."""
     df_raw = raw.copy()
     df_raw['review_id'] = range(len(df_raw))
     df_raw['valid'] = df_raw.valid.astype(str).str.lower().eq('true')
@@ -451,10 +472,10 @@ def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tupl
             'address': addr,
             'rating': round(float(rates.mean()), 1) if len(rates) else None,
             'count': int(group.review_id.nunique()),
-            'hours': int('24 jam' in blob or '24jam' in blob),
-            'wifi': int('wifi' in blob or 'wi-fi' in blob or 'internet' in blob),
-            'outlet': int(any(q in blob for q in ('colokan', 'stopkontak', 'charger'))),
-            'desk': int(any(q in blob for q in ('meja', 'kursi', 'nugas', 'laptop', 'wfc', 'kerja'))),
+            'hours': bool('24 jam' in blob or '24jam' in blob),
+            'wifi': bool('wifi' in blob or 'wi-fi' in blob or 'internet' in blob),
+            'outlet': bool(any(q in blob for q in ('colokan', 'stopkontak', 'charger'))),
+            'desk': bool(any(q in blob for q in ('meja', 'kursi', 'nugas', 'laptop', 'wfc', 'kerja'))),
         })
 
     with engine.begin() as conn:
@@ -476,16 +497,18 @@ def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tupl
             except (ValueError, TypeError):
                 rating = None
             review.append({
-                'kid': ids[str(r.placeId)],
-                'rid': int(r.review_id),
-                'text': str(r.teks_ulasan)[:60000],
+                'kafe_id': ids[str(r.placeId)],
+                'review_id': int(r.review_id),
+                'teks': str(r.teks_ulasan)[:60000],
                 'rating': rating,
-                'date': None,
+                'tanggal': None,
+                'teks_preprocessed': None,
+                'valid': True,
             })
 
-        ins = text('INSERT INTO ulasan(kafe_id,review_id,teks,rating,tanggal,valid) VALUES(:kid,:rid,:text,:rating,:date,1)')
-        for i in range(0, len(review), 2000):
-            conn.execute(ins, review[i:i + 2000])
+        ins = insert(Ulasan)
+        for i in range(0, len(review), 1000):
+            conn.execute(ins, review[i:i + 1000])
 
         # Peta (kafe_id, review_id) -> ulasan.id
         uid = {
@@ -501,16 +524,16 @@ def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tupl
                 ulid = uid.get(key)
                 if ulid:
                     lr.append({
-                        'uid': ulid,
-                        'kid': key[0],
-                        'sub': str(r.sub_kalimat)[:512],
-                        'aspect': r.aspek,
-                        'sent': r.sentimen,
+                        'ulasan_id': ulid,
+                        'kafe_id': key[0],
+                        'sub_kalimat': str(r.sub_kalimat)[:512],
+                        'aspek': r.aspek,
+                        'sentimen': r.sentimen,
                     })
 
-        inslabel = text('INSERT INTO label_sentimen(ulasan_id,kafe_id,sub_kalimat,aspek,sentimen) VALUES(:uid,:kid,:sub,:aspect,:sent)')
-        for i in range(0, len(lr), 3000):
-            conn.execute(inslabel, lr[i:i + 3000])
+        inslabel = insert(LabelSentimen)
+        for i in range(0, len(lr), 1500):
+            conn.execute(inslabel, lr[i:i + 1500])
 
         # Hitung agregasi skor_aspek per kafe
         conn.execute(_get_skor_aspek_sql(include_netral=True))
@@ -531,12 +554,16 @@ def run_preprocessing(filename: str | None = None, user_id=None) -> dict:
     write_state(
         dataset_name=active_name,
         dataset_size_bytes=csv_path.stat().st_size,
+        preprocessed=False,
+        classified=False,
+        percent=12,
         checkpoint=1,
         checkpoint_title='Persiapan data',
         checkpoint_action='Membuka dan membaca berkas CSV ulasan',
         checkpoint_result=f'Membaca berkas {active_name}',
-        message=f'Membaca berkas {active_name}...'
+        message=f'Tahap 1/6: Membaca berkas {active_name}...'
     )
+    time.sleep(1.0)
 
     raw = pd.read_csv(csv_path, encoding='utf-8-sig')
     preprocessed_columns = {'review_id', 'placeId', 'nama_kafe', 'sub_kalimat',
@@ -549,23 +576,69 @@ def run_preprocessing(filename: str | None = None, user_id=None) -> dict:
             raise ValueError('Tidak ada label positif atau negatif pada CSV hasil preprocessing.')
 
         write_state(
+            percent=20,
             checkpoint=1,
-            checkpoint_title='Dataset sudah dipreprocessing',
-            checkpoint_action='Memvalidasi kolom dan memuat label hasil anotasi',
-            checkpoint_result=f'{len(labels):,} label positif/negatif ditemukan',
-            message=f'Dataset {active_name} sudah dipreprocessing; melewati tahapan preprocessing ulang',
+            checkpoint_title='Persiapan data',
+            checkpoint_action='Memvalidasi struktur kolom dan memuat baris data',
+            checkpoint_result=f'{len(raw):,} baris data berhasil dimuat dari {active_name}',
+            message=f'Tahap 1/6: Validasi struktur data ({len(raw):,} baris)',
         )
+        time.sleep(1.0)
 
+        write_state(
+            percent=35,
+            checkpoint=2,
+            checkpoint_title='Potong template',
+            checkpoint_action='Membersihkan teks boilerplate terjemahan Google Maps',
+            checkpoint_result='Teks ulasan bersih dari template bawaan Google Maps',
+            message='Tahap 2/6: Membersihkan boilerplate template ulasan...',
+        )
+        time.sleep(1.0)
+
+        write_state(
+            percent=52,
+            checkpoint=3,
+            checkpoint_title='Pecah dan beri label',
+            checkpoint_action='Memecah sub-kalimat serta memetakan 6 aspek WFC dan polaritas sentimen',
+            checkpoint_result=f'{len(labels):,} sub-kalimat berlabel positif/negatif tervalidasi',
+            message=f'Tahap 3/6: Pemecahan sub-kalimat & pemetaan {len(labels):,} label...',
+        )
+        time.sleep(1.0)
+
+        write_state(
+            percent=70,
+            checkpoint=4,
+            checkpoint_title='Enam tahap preprocessing',
+            checkpoint_action='Menjalankan Cleaning, Case Folding, Tokenizing, Normalisasi, Stopword Removal, dan Stemming Sastrawi',
+            checkpoint_result=f'Transformasi 6 tahap teks pada {len(labels):,} data terverifikasi',
+            message='Tahap 4/6: Cleaning, Case Folding, Tokenizing, Normalisasi, Stopword & Stemming...',
+        )
+        time.sleep(1.0)
+
+        write_state(
+            percent=86,
+            checkpoint=5,
+            checkpoint_title='Simpan hasil',
+            checkpoint_action='Menyimpan kafe, ulasan, label sentimen, dan agregasi skor aspek ke database',
+            checkpoint_result='Menyinkronkan dataset ke database aktif...',
+            message='Tahap 5/6: Menyimpan hasil preprocessing ke database...',
+        )
         dataset_cache = UPLOAD / f'.labels_{active_name}.pkl'
         labels.to_pickle(dataset_cache)
         labels.to_pickle(CACHE)
 
         counts = _store_preprocessed_labels(labels)
+        time.sleep(1.0)
+
         reg = _read_registry()
-        if active_name in reg:
-            reg[active_name]['preprocessed'] = True
-            reg[active_name]['labels_count'] = len(labels)
-            _write_registry(reg)
+        meta = reg.get(active_name, {})
+        meta['size_bytes'] = csv_path.stat().st_size
+        meta['row_count'] = len(raw)
+        meta['preprocessed'] = True
+        meta['classified'] = False
+        meta['labels_count'] = len(labels)
+        reg[active_name] = meta
+        _write_registry(reg)
 
         write_state(
             preprocessed=True,
@@ -573,56 +646,69 @@ def run_preprocessing(filename: str | None = None, user_id=None) -> dict:
             percent=100,
             checkpoint=6,
             checkpoint_title='Preprocessing selesai',
-            checkpoint_action='CSV hasil preprocessing valid dan siap diklasifikasikan',
+            checkpoint_action='Semua tahap preprocessing selesai — data siap diklasifikasikan',
             checkpoint_result=f'{counts[2]:,} kafe, {counts[0]:,} ulasan, dan {counts[1]:,} label tersimpan',
-            message=f'Dataset sudah dipreprocessing: {len(labels):,} label siap diklasifikasikan',
+            message=f'Preprocessing selesai: {len(labels):,} label siap diklasifikasikan',
         )
         return {
             'labels': len(labels),
             'reviews': int(labels.review_id.nunique()),
             'cafes': counts[2],
-            'skipped_preprocessing': True,
+            'replayed_preprocessing': True,
         }
 
     write_state(
+        percent=18,
         checkpoint=1,
         checkpoint_title='Persiapan data',
         checkpoint_action='Membaca CSV dan memeriksa kolom wajib',
         checkpoint_result=f'{len(raw):,} baris mentah ditemukan pada {active_name}',
-        message=f'Checkpoint 1/6 — {len(raw):,} ulasan siap diproses',
+        message=f'Tahap 1/6 — {len(raw):,} ulasan siap diproses',
     )
+    time.sleep(1.0)
 
     def _progress(done: int, total: int, n_labels: int):
+        pct = min(84, 45 + int(39 * done / total)) if total else 60
         write_state(
+            percent=pct,
             checkpoint=4,
             checkpoint_title='Enam tahap preprocessing',
             checkpoint_action='Menormalisasi, tokenisasi, menghapus stopword, dan stemming',
             checkpoint_result=f'{n_labels:,} label sementara dari {done:,} ulasan selesai',
+            message=f'Tahap 4/6: Preprocessing & pelabelan ({done:,}/{total:,} ulasan)',
         )
-        progress_callback('Preprocessing & pelabelan', done, total, f'{n_labels:,} label sementara')
 
     write_state(
+        percent=32,
         checkpoint=2,
         checkpoint_title='Potong template',
         checkpoint_action='Menghapus bagian boilerplate Google Maps dari teks ulasan',
         checkpoint_result='Teks ulasan siap dibaca sebagai isi review',
+        message='Tahap 2/6: Memotong template Google Maps...',
     )
+    time.sleep(1.0)
+
     write_state(
+        percent=45,
         checkpoint=3,
         checkpoint_title='Pecah dan beri label',
         checkpoint_action='Memecah sub-kalimat lalu mendeteksi aspek dan sentimen lexicon',
         checkpoint_result='Label aspek-sentimen dikumpulkan per ulasan',
+        message='Tahap 3/6: Memecah sub-kalimat dan pelabelan aspek...',
     )
+    time.sleep(1.0)
 
     labels, summary = preprocess_and_label(raw, progress=_progress)
 
     write_state(
+        percent=88,
         checkpoint=5,
         checkpoint_title='Simpan hasil',
         checkpoint_action='Menyimpan ulasan, label, dan agregasi skor aspek ke database',
         checkpoint_result=f'{len(labels):,} label dari {summary["jumlah_review_berlabel"]:,} ulasan siap disimpan',
-        message='Checkpoint 5/6 — menyimpan hasil preprocessing',
+        message='Tahap 5/6 — menyimpan hasil preprocessing ke database',
     )
+    time.sleep(1.0)
 
     # Simpan ke cache khusus dataset dan cache umum
     dataset_cache = UPLOAD / f'.labels_{active_name}.pkl'
@@ -631,14 +717,16 @@ def run_preprocessing(filename: str | None = None, user_id=None) -> dict:
 
     counts = _store_labels(raw, labels, user_id)
 
-    # ⚠️ PENTING: CSV mentah TIDAK dihapus! Tetap dipertahankan di DATASETS_DIR agar bisa diproses ulang!
-
     # Update metadata di registry
     reg = _read_registry()
-    if active_name in reg:
-        reg[active_name]['preprocessed'] = True
-        reg[active_name]['labels_count'] = len(labels)
-        _write_registry(reg)
+    meta = reg.get(active_name, {})
+    meta['size_bytes'] = csv_path.stat().st_size
+    meta['row_count'] = len(raw)
+    meta['preprocessed'] = True
+    meta['classified'] = False
+    meta['labels_count'] = len(labels)
+    reg[active_name] = meta
+    _write_registry(reg)
 
     write_state(
         preprocessed=True,
@@ -665,24 +753,32 @@ def run_classification(user_id=None) -> dict:
     global _RUNTIME_MODEL, _RUNTIME_VECTORIZER
     state = read_state()
     active_name = state.get('dataset_name')
-    dataset_cache = UPLOAD / f'.labels_{active_name}.pkl' if active_name else None
 
     labels = None
-    if dataset_cache and dataset_cache.exists():
-        labels = pd.read_pickle(dataset_cache)
-    elif CACHE.exists():
-        labels = pd.read_pickle(CACHE)
+    candidates = [
+        UPLOAD / f'.labels_{active_name}.pkl' if active_name else None,
+        CACHE,
+        BASE / 'uploads_tmp' / f'.labels_{active_name}.pkl' if active_name else None,
+        BASE / 'uploads_tmp' / '.labels_cache.pkl',
+    ]
+    for c in candidates:
+        if c and c.is_file():
+            labels = pd.read_pickle(c)
+            break
 
     if labels is None:
         raise ValueError('Hasil preprocessing belum ditemukan. Jalankan preprocessing sebelum klasifikasi.')
 
     write_state(
+        classified=False,
+        percent=10,
         class_checkpoint=0,
         class_checkpoint_title='Menyiapkan klasifikasi',
         class_checkpoint_action='Membaca data label hasil preprocessing',
-        class_checkpoint_result='',
-        message='Menyiapkan alur klasifikasi MNB'
+        class_checkpoint_result=f'{len(labels):,} sampel siap dilatih dan diuji',
+        message='Menyiapkan alur klasifikasi MNB...'
     )
+    time.sleep(0.8)
 
     def _progress(stage: str, done: int, total: int, detail: str):
         actions = {
@@ -692,14 +788,16 @@ def run_classification(user_id=None) -> dict:
             4: "Menghitung log prior dan log likelihood kata per kelas dengan Laplace smoothing (alpha=0,1)",
             5: "Menghitung Confusion Matrix, Akurasi, Precision, Recall, Macro F1, dan Weighted F1 pada data uji"
         }
+        pct = min(92, int((done / total) * 85) + 10) if total else 50
         write_state(
+            percent=pct,
             class_checkpoint=done,
             class_checkpoint_title=stage,
             class_checkpoint_action=actions.get(done, stage),
             class_checkpoint_result=detail,
-            message=f"Klasifikasi: {stage} ({detail})"
+            message=f"Tahap {done}/{total}: {stage} — {detail}"
         )
-        progress_callback(stage, done, total, detail)
+        time.sleep(1.0)
 
     metrics, model, vectorizer, _ = fit_evaluate_manual(
         labels,
@@ -713,6 +811,15 @@ def run_classification(user_id=None) -> dict:
     _RUNTIME_MODEL = model
     _RUNTIME_VECTORIZER = vectorizer
 
+    try:
+        ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(SAVED_MODEL_FILE, 'wb') as f:
+            pickle.dump(model, f)
+        with open(SAVED_VEC_FILE, 'wb') as f:
+            pickle.dump(vectorizer, f)
+    except OSError:
+        pass
+
     cm = {
         'classes': metrics['classes'],
         'matrix': metrics['matrix'],
@@ -721,19 +828,15 @@ def run_classification(user_id=None) -> dict:
 
     with engine.begin() as conn:
         conn.execute(text('DELETE FROM evaluasi_model'))
-        conn.execute(text("""
-            INSERT INTO evaluasi_model(nama_model,accuracy,precision_macro,recall_macro,
-                                       f1_macro,f1_weighted,jumlah_testing,confusion_matrix)
-            VALUES(:name,:acc,:p,:r,:f,:w,:n,:cm)
-        """), {
-            'name': 'Multinomial Naive Bayes',
-            'acc': metrics['accuracy'],
-            'p': metrics['macro']['precision'],
-            'r': metrics['macro']['recall'],
-            'f': metrics['macro']['f1'],
-            'w': metrics['weighted']['f1'],
-            'n': metrics['jumlah_testing'],
-            'cm': json.dumps(cm),
+        conn.execute(insert(EvaluasiModel), {
+            'nama_model': 'Multinomial Naive Bayes',
+            'accuracy': metrics['accuracy'],
+            'precision_macro': metrics['macro']['precision'],
+            'recall_macro': metrics['macro']['recall'],
+            'f1_macro': metrics['macro']['f1'],
+            'f1_weighted': metrics['weighted']['f1'],
+            'jumlah_testing': metrics['jumlah_testing'],
+            'confusion_matrix': cm,
         })
         conn.execute(text("""
             INSERT INTO riwayat_upload(nama_file,jumlah_baris,jumlah_kafe,status,pesan,user_id)
@@ -753,11 +856,13 @@ def run_classification(user_id=None) -> dict:
     # Update metadata di registry
     if active_name:
         reg = _read_registry()
-        if active_name in reg:
-            reg[active_name]['classified'] = True
-            reg[active_name]['accuracy'] = round(float(metrics['accuracy']), 4)
-            reg[active_name]['f1_macro'] = round(float(metrics['macro']['f1']), 4)
-            _write_registry(reg)
+        meta = reg.get(active_name, {})
+        meta['preprocessed'] = True
+        meta['classified'] = True
+        meta['accuracy'] = round(float(metrics['accuracy']), 4)
+        meta['f1_macro'] = round(float(metrics['macro']['f1']), 4)
+        reg[active_name] = meta
+        _write_registry(reg)
 
     write_state(
         classified=True,

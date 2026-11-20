@@ -9,6 +9,7 @@ from processing.workflow_state import is_process_active, read_state, run_backgro
 
 bp = Blueprint('dataset', __name__, url_prefix='/dataset')
 FIXED_DATASET = 'dataset_Nov_preprocessed.csv'
+PROTECTED_DATASETS = {'dataset_Nov_preprocessed.csv', 'dataset_semprog.csv'}
 
 
 def login_guard():
@@ -40,7 +41,8 @@ def index():
         'dataset/index.html',
         state=current_state,
         datasets=datasets,
-        fixed_dataset=FIXED_DATASET
+        fixed_dataset=FIXED_DATASET,
+        protected_datasets=PROTECTED_DATASETS,
     )
 
 
@@ -64,6 +66,9 @@ def upload():
         return redirect(url_for('dataset.index'))
     if filename.lower() == FIXED_DATASET.lower():
         flash('Nama tersebut milik dataset final. Gunakan nama lain agar dataset final tetap tersimpan.', 'error')
+        return redirect(url_for('dataset.index'))
+    if filename.lower() in {p.lower() for p in PROTECTED_DATASETS}:
+        flash('Nama tersebut milik dataset penelitian. Gunakan nama lain agar dataset tetap tersimpan.', 'error')
         return redirect(url_for('dataset.index'))
     if wf.get_dataset_path(filename) is not None:
         flash(f"Dataset '{filename}' sudah ada. Ubah nama file lalu coba lagi.", 'error')
@@ -145,7 +150,17 @@ def delete(filename=None):
     guard = login_guard()
     if guard:
         return guard
-    flash('Dataset final dikunci dan tidak dapat dihapus.', 'error')
+    if is_process_active():
+        flash('Tidak dapat menghapus dataset saat proses sedang berjalan.', 'info')
+        return redirect(url_for('dataset.index'))
+    if not filename or filename.lower() in {p.lower() for p in PROTECTED_DATASETS}:
+        flash('Dataset utama penelitian dikunci dan tidak dapat dihapus.', 'error')
+        return redirect(url_for('dataset.index'))
+    try:
+        wf.delete_dataset(filename)
+        flash(f"Dataset '{filename}' berhasil dihapus.", 'success')
+    except OSError as e:
+        flash(f"Gagal menghapus dataset: {e}", 'error')
     return redirect(url_for('dataset.index'))
 
 

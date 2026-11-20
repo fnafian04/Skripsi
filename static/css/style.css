@@ -1,21 +1,21 @@
 :root {
-  --paper: #f4f6f8;
-  --paper-deep: #e7ebf0;
+  --paper: #f7f4ee;
+  --paper-deep: #ece6db;
   --card: #ffffff;
-  --ink: #17233b;
-  --ink-soft: #536078;
-  --muted: #7d899d;
-  --line: #dce3eb;
-  --espresso: #1f385f;
-  --espresso-deep: #14243f;
-  --navy-soft: #e8eef7;
-  --matcha: #47745a;
-  --matcha-pale: #e5efe6;
-  --terracotta: #bd6d55;
-  --terracotta-pale: #f7e7e1;
+  --ink: #1e293b;
+  --ink-soft: #4e5b6e;
+  --muted: #7b8494;
+  --line: #e3dbce;
+  --espresso: #263f63;
+  --espresso-deep: #182a45;
+  --navy-soft: #eef2f7;
+  --matcha: #3d7a55;
+  --matcha-pale: #e6f2ea;
+  --terracotta: #c8654b;
+  --terracotta-pale: #faeae5;
   --gold: #d29d4a;
-  --serif: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
-  --sans: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --serif: "Plus Jakarta Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --sans: "Plus Jakarta Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
 }
 
 .sidebar {
@@ -3095,4 +3095,278 @@ html[data-theme="dark"] .stage-example {
 
 html[data-theme="dark"] .stage-num-badge {
   background: #3b82f6;
+}
+
+
+/* =========================================================
+   Cozy Brand & SVG Navigation Polish + SINTA Analytics Charts
+   ========================================================= */
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.brand-copy strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: #fffaf3;
+}
+.brand-copy em {
+  color: #b8c7dc;
+  font-size: .68rem;
+  font-style: normal;
+  letter-spacing: .02em;
+}
+
+.nav-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.nav-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+}
+
+.checkpoint-list-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.badge-semprog {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+html[data-theme="dark"] .badge-semprog {
+  background: rgba(217, 119, 6, 0.22);
+  color: #fcd34d;
+  border-color: #92400e;
+}
+
+/* Live stage card highlight saat preprocessing/klasifikasi berjalan */
+.stage-card.is-active-stage {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(210, 157, 74, 0.14), rgba(210, 157, 74, 0.04));
+  box-shadow: 0 8px 22px rgba(210, 157, 74, 0.22);
+  transform: translateY(-2px);
+}
+.stage-card.is-active-stage .stage-num-badge {
+  background: var(--gold);
+  color: #182a45;
+  box-shadow: 0 0 0 4px rgba(210, 157, 74, 0.28);
+}
+.stage-card.is-done-stage {
+  border-color: #99c7ab;
+  background: linear-gradient(180deg, rgba(61, 122, 85, 0.08), transparent);
+}
+.stage-card.is-done-stage .stage-num-badge {
+  background: var(--matcha);
+}
+
+/* Form Uji Ulasan & Quick Sample Chips */
+#uji-ulasan textarea {
+  display: block;
+  width: 100%;
+  margin-top: .4rem;
+  padding: .9rem 1rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  resize: vertical;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+#uji-ulasan textarea:focus {
+  outline: none;
+  border-color: var(--espresso);
+  box-shadow: 0 0 0 3px rgba(38, 63, 99, .14);
+}
+.sample-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: .7rem 0 1rem;
+}
+.sample-chip {
+  min-height: 32px;
+  padding: .35rem .8rem;
+  color: var(--espresso);
+  background: var(--navy-soft);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-size: .78rem;
+  font-weight: 600;
+}
+.sample-chip:hover {
+  color: #fff;
+  background: var(--espresso);
+  border-color: var(--espresso);
+}
+html[data-theme="dark"] .sample-chip {
+  color: #dbe7f8;
+  background: #223552;
+  border-color: #354c70;
+}
+html[data-theme="dark"] .sample-chip:hover {
+  background: #3b5d8f;
+}
+
+/* SINTA-Inspired Analytics Dashboard Cards */
+.sinta-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
+  margin: 0 0 2rem;
+}
+.sinta-chart-card {
+  padding: 1.4rem 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(24, 42, 69, .05);
+  display: flex;
+  flex-direction: column;
+}
+.sinta-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .8rem;
+  margin-bottom: .75rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--line);
+}
+.sinta-card-header .eyebrow {
+  margin-bottom: .25rem;
+}
+.sinta-card-header h2 {
+  font-size: 1.2rem;
+}
+.sinta-pill {
+  flex: none;
+  padding: .3rem .7rem;
+  border-radius: 99px;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--espresso);
+  background: var(--navy-soft);
+  border: 1px solid var(--line);
+}
+.sinta-pill-matcha {
+  color: #215737;
+  background: var(--matcha-pale);
+  border-color: #a9d4b5;
+}
+html[data-theme="dark"] .sinta-pill {
+  color: #cfe0f5;
+  background: #223654;
+}
+html[data-theme="dark"] .sinta-pill-matcha {
+  color: #86efac;
+  background: rgba(61, 122, 85, 0.25);
+  border-color: #2c6e46;
+}
+.sinta-chart-canvas {
+  min-height: 290px;
+  width: 100%;
+}
+.sinta-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .65rem;
+  margin-top: auto;
+  padding-top: .85rem;
+  border-top: 1px dashed var(--line);
+}
+.sinta-mini-stat {
+  padding: .5rem .65rem;
+  background: var(--paper);
+  border-radius: 10px;
+}
+.sinta-mini-stat span {
+  display: block;
+  font-size: .72rem;
+  color: var(--muted);
+}
+.sinta-mini-stat strong {
+  display: block;
+  margin-top: .15rem;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+/* Inline meter pada tabel ringkasan */
+.sinta-inline-meter {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+.sinta-inline-track {
+  flex: 1;
+  min-width: 72px;
+  height: 8px;
+  background: var(--paper-deep);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.sinta-inline-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--matcha), #5aa375);
+  border-radius: 99px;
+}
+
+/* Score meter & medal ranks pada rekomendasi */
+.score-meter {
+  width: 100%;
+  height: 6px;
+  margin: .35rem 0;
+  background: var(--paper-deep);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.score-meter span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--matcha), var(--gold));
+  border-radius: 99px;
+}
+.rank-top-1,
+.rank-top-2,
+.rank-top-3 {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+}
+.rank-top-1 {
+  color: #7c4a03 !important;
+  background: linear-gradient(135deg, #fde68a, #f59e0b);
+}
+.rank-top-2 {
+  color: #334155 !important;
+  background: linear-gradient(135deg, #f1f5f9, #cbd5e1);
+}
+.rank-top-3 {
+  color: #6c3312 !important;
+  background: linear-gradient(135deg, #fed7aa, #ea8c55);
+}
+
+@media (max-width: 960px) {
+  .sinta-analytics-grid {
+    grid-template-columns: 1fr;
+  }
 }

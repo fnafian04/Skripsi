@@ -56,22 +56,24 @@ def read_state():
 
         # Sinkronisasi otomatis dataset_name jika kosong tapi ada file di repositori
         if not state.get('dataset_name'):
-            datasets_dir = _STATE_PATH.parent / 'datasets'
-            if datasets_dir.is_dir():
-                csvs = list(datasets_dir.glob('*.csv'))
-                if csvs:
-                    chosen = next((c for c in csvs if 'final' in c.name), csvs[0])
-                    state['dataset_name'] = chosen.name
-                    state['dataset_size_bytes'] = chosen.stat().st_size
-                    if state.get('status') == 'belum_dimulai':
-                        state['status'] = 'siap'
-                        state['message'] = f"Dataset '{chosen.name}' siap diproses"
+            for datasets_dir in (_STATE_PATH.parent / 'datasets', _BASE / 'uploads_tmp' / 'datasets'):
+                if datasets_dir.is_dir():
+                    csvs = list(datasets_dir.glob('*.csv'))
+                    if csvs:
+                        chosen = next((c for c in csvs if 'preprocessed' in c.name or 'final' in c.name), csvs[0])
+                        state['dataset_name'] = chosen.name
+                        state['dataset_size_bytes'] = chosen.stat().st_size
+                        if state.get('status') == 'belum_dimulai':
+                            state['status'] = 'siap'
+                            state['message'] = f"Dataset '{chosen.name}' siap diproses"
+                        break
 
         active_name = state.get('dataset_name')
-        if active_name and state.get('status') != 'berjalan':
+        if active_name and state.get('status') not in ('berjalan', 'menunggu'):
             fname = Path(active_name).name
             label_cache = _STATE_PATH.parent / f'.labels_{fname}.pkl'
-            if label_cache.exists():
+            bundled_cache = _BASE / 'uploads_tmp' / f'.labels_{fname}.pkl'
+            if label_cache.exists() or bundled_cache.exists():
                 state['preprocessed'] = True
 
         if state.get('dataset_size_bytes') is None and active_name:
@@ -79,6 +81,8 @@ def read_state():
             candidates = [
                 _STATE_PATH.parent / 'datasets' / fname,
                 _STATE_PATH.parent / fname,
+                _BASE / 'uploads_tmp' / 'datasets' / fname,
+                _BASE / 'uploads_tmp' / fname,
             ]
             for c in candidates:
                 if c.is_file():
@@ -197,16 +201,41 @@ def run_background(stage, function, *args, **kwargs):
         if is_process_active():
             return False
         run_id = str(uuid.uuid4())
-        write_state(
-            status='menunggu',
-            stage=stage,
-            percent=0,
-            message='Menyiapkan proses...',
-            started_at=time.time(),
-            finished_at=None,
-            error=None,
-            run_id=run_id
-        )
+        init_updates = {
+            'status': 'menunggu',
+            'stage': stage,
+            'percent': 0,
+            'message': 'Menyiapkan proses...',
+            'started_at': time.time(),
+            'finished_at': None,
+            'error': None,
+            'run_id': run_id,
+        }
+        if stage == 'preprocessing':
+            init_updates.update({
+                'preprocessed': False,
+                'classified': False,
+                'preprocessing_seconds': None,
+                'classification_seconds': None,
+                'checkpoint': 0,
+                'checkpoint_title': 'Persiapan alur preprocessing',
+                'checkpoint_action': 'Memulai proses pembacaan data...',
+                'checkpoint_result': '',
+                'class_checkpoint': 0,
+                'class_checkpoint_title': 'Belum berjalan',
+                'class_checkpoint_action': 'Menunggu preprocessing selesai',
+                'class_checkpoint_result': '',
+            })
+        elif stage == 'classification':
+            init_updates.update({
+                'classified': False,
+                'classification_seconds': None,
+                'class_checkpoint': 0,
+                'class_checkpoint_title': 'Persiapan klasifikasi MNB',
+                'class_checkpoint_action': 'Memulai alur pelatihan dan evaluasi model...',
+                'class_checkpoint_result': '',
+            })
+        write_state(**init_updates)
 
     def worker():
         start = time.time()
@@ -224,7 +253,7 @@ def run_background(stage, function, *args, **kwargs):
             write_state(
                 status='selesai',
                 percent=100,
-                message='Tahap selesai',
+                message=s.get('message') or 'Tahap selesai',
                 elapsed_seconds=duration,
                 **{f'{stage}_seconds': duration},
                 finished_at=time.time(),
