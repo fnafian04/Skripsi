@@ -38,7 +38,18 @@ def get_target_db_url() -> str:
         print(f"Database : {DEFAULT_DB}")
         print(f"User     : {DEFAULT_USER}")
         print("--------------------------------------------------")
-        password = getpass.getpass("Masukkan password database Supabase Anda: ").strip()
+        print("Tips: Di terminal, karakter password sengaja disembunyikan demi keamanan.")
+        print("Pilih cara input:")
+        print("  [1] Ketik tersembunyi (standar keamanan terminal)")
+        print("  [2] Ketik terlihat (teks muncul di layar)")
+        pilihan = input("Pilih [1/2, default 1]: ").strip()
+
+        if pilihan == "2":
+            password = input("Masukkan password database Supabase Anda: ").strip()
+        else:
+            print("(Ketik password Anda lalu tekan Enter — huruf tidak akan muncul di layar)")
+            password = getpass.getpass("Masukkan password database Supabase Anda: ").strip()
+
         if not password:
             print("[!] Password tidak boleh kosong.")
             sys.exit(1)
