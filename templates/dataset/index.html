@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Data Penelitian — Sistem Analisis Ulasan Kafe{% endblock %}
+{% block title %}Upload Dataset — Nafinder Sistem Rekomendasi Kafe WFC{% endblock %}
 {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Informasi data penelitian</p>
-  <h1>Data yang digunakan</h1>
+  <p class="eyebrow">Manajemen data & pipeline analisis</p>
+  <h1>Upload Dataset</h1>
+  <p class="lede">Kelola dataset ulasan kafe, jalankan preprocessing 6 tahap, unduh hasil pembersihan dalam format CSV, lalu latih dan uji model Multinomial Naive Bayes.</p>
 </header>
 
 <!-- 1. Dataset default and optional uploads -->
 <section class="workflow-panel">
   <div class="workflow-head">
     <div>
-      <p class="eyebrow">Dataset awal</p>
-      <h2>Dataset final sudah tersedia</h2>
+      <p class="eyebrow">Tambah data baru</p>
+      <h2>Unggah Dataset CSV Ulasan Kafe</h2>
     </div>
-    <span class="dataset-badge badge-done">Siap digunakan</span>
+    <span class="dataset-badge badge-done">Format CSV</span>
   </div>
-  <p class="muted">Dataset final penelitian sudah dimuat otomatis sebagai pilihan awal dan tetap tersimpan. Anda juga dapat menambahkan dataset CSV lain untuk mencoba alur pengolahan dan klasifikasi. Dataset yang diunggah akan dipilih sebagai dataset aktif, tetapi tidak menimpa dataset final.</p>
-  <p class="muted">Jika ingin kembali ke hasil penelitian, pilih lagi dataset final. Hasil pengolahan dan rekomendasi akan mengikuti dataset yang sedang aktif.</p>
+  <p class="muted">Dataset penuh hasil scraping (<strong>dataset_semprog.csv</strong>) dan dataset pembanding berlabel anotator (<strong>dataset_Nov_preprocessed.csv</strong>) sudah tersimpan aman. Anda dapat mengunggah berkas CSV tambahan tanpa menimpa kedua dataset utama.</p>
   <form method="post" action="{{ url_for('dataset.upload') }}" enctype="multipart/form-data">
-    <label for="dataset-file">Tambahkan dataset CSV</label>
+    <label for="dataset-file">Pilih berkas dataset (.csv)</label>
     <input id="dataset-file" name="dataset_file" type="file" accept=".csv,text/csv" required>
-    <button class="btn-action-active" type="submit" {% if state.status in ['berjalan', 'menunggu'] %}disabled{% endif %}>Tambahkan dan coba</button>
+    <button class="btn-action-active" type="submit" {% if state.status in ['berjalan', 'menunggu'] %}disabled{% endif %}>Unggah & Pilih Dataset</button>
   </form>
-  <p class="muted">CSV untuk diproses harus memuat kolom: <code>placeId</code>, <code>nama_kafe</code>, <code>teks_ulasan</code>, <code>rating_ulasan</code>, <code>tanggal_ulasan</code>, <code>kafe_id</code>, dan <code>valid</code>.</p>
+  <p class="muted">Kolom wajib pada CSV: <code>placeId</code>, <code>nama_kafe</code>, <code>teks_ulasan</code>, <code>rating_ulasan</code>, <code>tanggal_ulasan</code>, <code>kafe_id</code>, dan <code>valid</code>.</p>
 </section>
 
 <!-- 2. Dataset collection -->
@@ -74,6 +74,9 @@
               <button class="btn-sm btn-action-active" type="submit" {% if state.status in ['berjalan', 'menunggu'] %}disabled{% endif %}>Pilih dataset ini</button>
             </form>
             {% endif %}
+            {% if d.preprocessed or d.has_labels %}
+            <a class="btn-sm btn-outline" href="{{ url_for('dataset.download_preprocessed', filename=d.name) }}" title="Unduh dataset hasil preprocessing dalam format CSV">⬇ Unduh CSV</a>
+            {% endif %}
             {% if d.name not in protected_datasets %}
             <form method="post" action="{{ url_for('dataset.delete', filename=d.name) }}" style="margin:0;" onsubmit="return confirm('Hapus dataset tambahan {{ d.name }}?');">
               <button class="btn-danger-sm" type="submit" {% if state.status in ['berjalan', 'menunggu'] %}disabled{% endif %}>Hapus</button>
@@ -112,12 +115,15 @@
     <div class="step-state" id="preprocess-state">
       {% if state.preprocessed %}Selesai — siap diklasifikasikan atau diproses ulang{% elif state.dataset_name %}Siap dijalankan{% else %}Menunggu dataset aktif{% endif %}
     </div>
-    <form method="post" action="{{ url_for('dataset.preprocessing') }}">
-      <input type="hidden" name="filename" id="form-preprocess-filename" value="{{ state.dataset_name or '' }}">
-      <button id="preprocess-button" class="btn-action-active" {% if not state.dataset_name or state.status in ['berjalan','menunggu'] %}disabled{% endif %}>
-        {% if state.preprocessed %}Preprocessing Ulang{% else %}Jalankan Preprocessing{% endif %}
-      </button>
-    </form>
+    <div class="actions-cell">
+      <form method="post" action="{{ url_for('dataset.preprocessing') }}" style="margin:0;">
+        <input type="hidden" name="filename" id="form-preprocess-filename" value="{{ state.dataset_name or '' }}">
+        <button id="preprocess-button" class="btn-action-active" {% if not state.dataset_name or state.status in ['berjalan','menunggu'] %}disabled{% endif %}>
+          {% if state.preprocessed %}Preprocessing Ulang{% else %}Jalankan Preprocessing{% endif %}
+        </button>
+      </form>
+      <a id="download-preprocessed-btn" class="btn-outline button-download" href="{{ url_for('dataset.download_preprocessed') }}" {% if not state.preprocessed %}style="display:none;"{% endif %}>⬇ Unduh Hasil Preprocessing (.csv)</a>
+    </div>
   </article>
 
   <div class="step-connector"></div>
@@ -568,6 +574,12 @@ async function refresh() {
     const classCard = document.getElementById('step-classify-card');
     if (prepCard) prepCard.classList.toggle('step-locked', !activeDs);
     if (classCard) classCard.classList.toggle('step-locked', !isPreprocessed);
+
+    const dlBtn = document.getElementById('download-preprocessed-btn');
+    if (dlBtn) {
+      dlBtn.style.display = (!busy && isPreprocessed) ? 'inline-flex' : 'none';
+      if (activeDs) dlBtn.href = '/dataset/unduh/' + encodeURIComponent(activeDs);
+    }
 
     document.getElementById('preprocess-state').textContent = busy && s.stage === 'preprocessing' ?
       'Sedang berjalan (' + (s.checkpoint || 0) + '/6)' : isPreprocessed ? 'Selesai — siap klasifikasi / ulang' : activeDs ? 'Siap dijalankan' : 'Menunggu Dataset';

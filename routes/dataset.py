@@ -1,13 +1,19 @@
-"""Dataset workflow route: upload multi-dataset, aktivasi, preprocessing, klasifikasi, hapus."""
+"""Dataset workflow route: upload multi-dataset, aktivasi, preprocessing, klasifikasi, unduh, hapus."""
+import io
+from pathlib import Path
+import pandas as pd
 from flask import (
     Blueprint, render_template, session, redirect, url_for,
-    request, flash, jsonify
+    request, flash, jsonify, send_file
 )
 from werkzeug.utils import secure_filename
+from db import SessionLocal
+from models import Kafe, LabelSentimen, Ulasan
 from processing import dataset_workflow as wf
 from processing.workflow_state import is_process_active, read_state, run_background
 
 bp = Blueprint('dataset', __name__, url_prefix='/dataset')
+PRIMARY_DATASET = 'dataset_semprog.csv'
 FIXED_DATASET = 'dataset_Nov_preprocessed.csv'
 PROTECTED_DATASETS = {'dataset_Nov_preprocessed.csv', 'dataset_semprog.csv'}
 
@@ -26,16 +32,19 @@ def index():
 
     current_state = read_state()
     fixed_path = wf.get_dataset_path(FIXED_DATASET)
+    primary_path = wf.get_dataset_path(PRIMARY_DATASET)
     if fixed_path is None:
         flash(f"Dataset final '{FIXED_DATASET}' tidak tersedia di penyimpanan aplikasi.", 'error')
     elif not is_process_active():
         active_name = current_state.get('dataset_name')
         if not active_name or wf.get_dataset_path(active_name) is None:
-            wf.activate_dataset(FIXED_DATASET)
+            fallback_name = PRIMARY_DATASET if primary_path is not None else FIXED_DATASET
+            wf.activate_dataset(fallback_name)
             current_state = read_state()
 
     datasets = wf.list_datasets()
-    datasets.sort(key=lambda item: item['name'] != FIXED_DATASET)
+    order_priority = {PRIMARY_DATASET: 0, FIXED_DATASET: 1}
+    datasets.sort(key=lambda item: (order_priority.get(item['name'], 2), item['name']))
 
     return render_template(
         'dataset/index.html',
@@ -202,3 +211,87 @@ def status():
         # Backward compatibility fields
         **state
     })
+
+
+@bp.get('/unduh')
+@bp.get('/unduh/<path:filename>')
+def download_preprocessed(filename=None):
+    """Unduh hasil preprocessing dataset dalam format CSV."""
+    guard = login_guard()
+    if guard:
+        return guard
+
+    state = read_state()
+    target_name = Path(filename).name if filename else state.get('dataset_name')
+    if not target_name:
+        flash('Belum ada dataset yang dipilih untuk diunduh.', 'error')
+        return redirect(url_for('dataset.index'))
+
+    stem = Path(target_name).stem
+    download_name = f"{stem}_preprocessed.csv" if 'preprocessed' not in stem.lower() else f"{stem}.csv"
+
+    # 1. Prioritas: baca hasil cache pickle (.labels_<nama>.pkl)
+    cache_candidates = [
+        wf.UPLOAD / f'.labels_{target_name}.pkl',
+        wf.BASE / 'uploads_tmp' / f'.labels_{target_name}.pkl',
+    ]
+    if target_name == state.get('dataset_name'):
+        cache_candidates.extend([wf.CACHE, wf.BASE / 'uploads_tmp' / '.labels_cache.pkl'])
+
+    for cache_path in cache_candidates:
+        if cache_path and cache_path.is_file():
+            df = pd.read_pickle(cache_path)
+            buf = io.BytesIO(df.to_csv(index=False).encode('utf-8-sig'))
+            buf.seek(0)
+            return send_file(
+                buf,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype='text/csv; charset=utf-8',
+            )
+
+    # 2. Fallback: CSV sumber yang sudah memiliki kolom teks_preprocessed
+    csv_path = wf.get_dataset_path(target_name)
+    if csv_path and csv_path.is_file():
+        sample = pd.read_csv(csv_path, nrows=1, encoding='utf-8-sig')
+        if 'teks_preprocessed' in sample.columns:
+            return send_file(
+                csv_path,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype='text/csv; charset=utf-8',
+            )
+
+    # 3. Fallback: ekspor dari database bila dataset aktif sudah diproses
+    if target_name == state.get('dataset_name') and state.get('preprocessed'):
+        db = SessionLocal()
+        try:
+            rows = (
+                db.query(
+                    Ulasan.review_id,
+                    Kafe.place_id.label('placeId'),
+                    Kafe.nama.label('nama_kafe'),
+                    LabelSentimen.sub_kalimat,
+                    LabelSentimen.aspek,
+                    LabelSentimen.sentimen,
+                    Ulasan.teks_preprocessed,
+                )
+                .join(Kafe, Kafe.id == LabelSentimen.kafe_id)
+                .join(Ulasan, Ulasan.id == LabelSentimen.ulasan_id)
+                .all()
+            )
+            if rows:
+                df = pd.DataFrame([dict(r._mapping) for r in rows])
+                buf = io.BytesIO(df.to_csv(index=False).encode('utf-8-sig'))
+                buf.seek(0)
+                return send_file(
+                    buf,
+                    as_attachment=True,
+                    download_name=download_name,
+                    mimetype='text/csv; charset=utf-8',
+                )
+        finally:
+            db.close()
+
+    flash(f"Hasil preprocessing untuk '{target_name}' belum tersedia. Jalankan preprocessing terlebih dahulu.", 'error')
+    return redirect(url_for('dataset.index'))

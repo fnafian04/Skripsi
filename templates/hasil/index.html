@@ -1,8 +1,8 @@
-{% extends "base.html" %} {% block title %}Coba Analisis Ulasan — Nafinder Sistem Rekomendasi Kafe WFC{% endblock %} {% block content %}
+{% extends "base.html" %} {% block title %}Uji Model — Nafinder Sistem Rekomendasi Kafe WFC{% endblock %} {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Coba fitur analisis</p>
-  <h1>Analisis sebuah ulasan</h1>
-  <p class="lede">Masukkan ulasan tentang kafe untuk melihat topik yang disebutkan dan apakah pelanggan memuji atau mengeluh. Hasil ini adalah perkiraan model Naive Bayes berdasarkan data latih penelitian.</p>
+  <p class="eyebrow">Analisis & pengujian model sentimen</p>
+  <h1>Uji Model</h1>
+  <p class="lede">Masukkan ulasan kafe untuk melihat topik yang disebutkan dan sentimen prediksinya, sekaligus memeriksa kinerja evaluasi model Multinomial Naive Bayes.</p>
 </header>
 {% if evaluasi %}
 <section class="workflow-panel" id="uji-ulasan">
@@ -151,7 +151,7 @@
 {% endif %}
 {% else %}
 <div class="flash flash-info">
-  Hasil pengujian belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data yang digunakan</a> untuk memeriksa status model.
+  Hasil pengujian belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Upload Dataset</a> untuk memeriksa status model.
 </div>
 {% endif %} {% endblock %}
 {% block scripts %}

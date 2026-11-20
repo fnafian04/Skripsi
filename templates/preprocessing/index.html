@@ -1,30 +1,187 @@
 {% extends "base.html" %}
-{% block title %}Contoh Pengolahan Data — Sistem Analisis Ulasan Kafe{% endblock %}
+{% block title %}Contoh Pengolahan Data — Nafinder Sistem Rekomendasi Kafe WFC{% endblock %}
 {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Contoh cara ulasan disiapkan</p>
-  <h1>Dari ulasan asli ke hasil yang dibaca sistem</h1>
-  <p class="lede">Lihat perbedaan teks sebelum dan sesudah dirapikan. Sistem kemudian mencari topik yang dibahas dan mengenali apakah isinya berupa pujian atau keluhan.</p>
+  <p class="eyebrow">Inspeksi data baris demi baris</p>
+  <h1>Contoh Pengolahan Data</h1>
+  <p class="lede">Telusuri seluruh data ulasan sebelum dan sesudah dirapikan dalam tampilan tabel bergaya spreadsheet (15 baris per halaman), lengkap dengan aspek dan prediksi sentimen model Naive Bayes.</p>
 </header>
 
 {% if summary %}
 <div class="stat-grid">
-  <div class="stat-card"><span class="stat-kicker">Ulasan awal</span><strong>{{ "{:,}".format(summary.ulasan_awal) }}</strong><span>Baris pada CSV mentah</span></div>
-  <div class="stat-card"><span class="stat-kicker">Ulasan yang dapat dipakai</span><strong>{{ "{:,}".format(summary.ulasan_valid) }}</strong><span>Memenuhi syarat untuk dianalisis</span></div>
-  <div class="stat-card"><span class="stat-kicker">Hasil topik dan pendapat</span><strong>{{ "{:,}".format(summary.get("label", 0)) }}</strong><span>Setiap hasil menghubungkan satu topik dengan satu pendapat</span></div>
-  <div class="stat-card"><span class="stat-kicker">Kafe</span><strong>{{ "{:,}".format(summary.get("kafe", 0)) }}</strong><span>Memiliki ulasan berlabel</span></div>
+  <div class="stat-card stat-card-featured"><span class="stat-kicker">Dataset aktif</span><strong style="font-size:clamp(1.2rem,2.3vw,1.7rem); word-break:break-word;">{{ summary.nama_dataset }}</strong><span>Data yang sedang ditampilkan</span></div>
+  <div class="stat-card"><span class="stat-kicker">Ulasan awal</span><strong>{{ "{:,}".format(summary.ulasan_awal) }}</strong><span>Baris pada berkas CSV</span></div>
+  <div class="stat-card"><span class="stat-kicker">Ulasan valid</span><strong>{{ "{:,}".format(summary.ulasan_valid) }}</strong><span>Lolos penyaringan validitas</span></div>
+  <div class="stat-card"><span class="stat-kicker">Total baris siap olah</span><strong>{{ "{:,}".format(summary.get("label", 0)) }}</strong><span>Sub-kalimat terklasifikasi</span></div>
 </div>
 
-<section class="table-section">
-  <div class="section-heading"><div><p class="eyebrow">Sebelum teks dirapikan</p><h2>Ulasan asli</h2></div><span class="muted">{{ summary.nama_dataset }}</span></div>
-  {% if raw_sample %}<div class="table-wrap"><table class="data-table"><thead><tr><th>Kafe</th><th>Ulasan asli</th><th>Rating</th></tr></thead><tbody>{% for row in raw_sample %}<tr><td>{{ row.get("nama_kafe", "—") }}</td><td>{{ row.get("teks_ulasan", "—") }}</td><td>{{ row.get("rating_ulasan", "—") }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">Belum ada data mentah.</p>{% endif %}
-</section>
+<section class="workflow-panel">
+  <div class="excel-toolbar">
+    <div class="method-nav-tabs" role="tablist">
+      <a class="method-tab-btn {% if tab == 'processed' %}is-active{% endif %}" style="text-decoration:none;" href="{{ url_for('preprocessing.index', tab='processed', q=search_q, aspek=filter_aspek, sentimen=filter_sentimen, page=1) }}">Hasil Preprocessing & Klasifikasi ({{ "{:,}".format(summary.get("label", 0)) }})</a>
+      <a class="method-tab-btn {% if tab == 'raw' %}is-active{% endif %}" style="text-decoration:none;" href="{{ url_for('preprocessing.index', tab='raw', q=search_q, page=1) }}">Data Ulasan Mentah ({{ "{:,}".format(summary.ulasan_awal) }})</a>
+    </div>
+    {% if state.preprocessed %}
+    <a class="btn-sm btn-outline" href="{{ url_for('dataset.download_preprocessed') }}">⬇ Unduh Semua ke CSV</a>
+    {% endif %}
+  </div>
 
-<section class="table-section">
-  <div class="section-heading"><div><p class="eyebrow">Sesudah teks disiapkan</p><h2>Topik dan pendapat yang dikenali</h2></div><span class="muted">Pendapat: positif atau negatif</span></div>
-  {% if label_sample %}<div class="table-wrap"><table class="data-table"><thead><tr><th>Kafe</th><th>Bagian ulasan</th><th>Topik</th><th>Pendapat</th><th>Teks setelah dirapikan</th></tr></thead><tbody>{% for row in label_sample %}<tr><td>{{ row.get("nama_kafe", "—") }}</td><td>{{ row.get("sub_kalimat", "—") }}</td><td>{{ row.get("aspek", "—")|replace("_", " ")|title }}</td><td><span class="class-dot class-{{ row.get("sentimen", "") }}">{{ row.get("sentimen", "—")|title }}</span></td><td>{{ row.get("teks_preprocessed", "—") }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">Contoh hasil belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data penelitian</a> untuk memeriksa statusnya.</p>{% endif %}
+  <!-- Filter Bar -->
+  <form method="get" action="{{ url_for('preprocessing.index') }}" class="excel-filter-bar">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="hidden" name="page" value="1">
+    <input type="search" name="q" value="{{ search_q }}" placeholder="Cari nama kafe atau kata ulasan..." class="excel-search-input">
+    {% if tab == 'processed' %}
+    <select name="aspek" class="excel-select" onchange="this.form.submit()">
+      <option value="">Semua Aspek (6)</option>
+      {% for a in aspek_options %}
+      <option value="{{ a }}" {% if filter_aspek == a %}selected{% endif %}>{{ a|replace('_', ' ')|title }}</option>
+      {% endfor %}
+    </select>
+    <select name="sentimen" class="excel-select" onchange="this.form.submit()">
+      <option value="">Semua Sentimen</option>
+      <option value="positif" {% if filter_sentimen == 'positif' %}selected{% endif %}>Positif</option>
+      <option value="negatif" {% if filter_sentimen == 'negatif' %}selected{% endif %}>Negatif</option>
+    </select>
+    {% endif %}
+    <button type="submit" class="btn-sm btn-action-active">Tampilkan</button>
+    {% if search_q or filter_aspek or filter_sentimen %}
+    <a href="{{ url_for('preprocessing.index', tab=tab) }}" class="btn-sm btn-outline">Reset</a>
+    {% endif %}
+  </form>
+
+  <!-- Info Baris & Halaman -->
+  <div class="excel-meta-strip">
+    <span>Menampilkan baris ke-<strong>{{ "{:,}".format((page - 1) * per_page + 1) if total_rows else 0 }}</strong> s/d <strong>{{ "{:,}".format([page * per_page, total_rows]|min) }}</strong> dari total <strong>{{ "{:,}".format(total_rows) }}</strong> baris data</span>
+    <span>Halaman <strong>{{ "{:,}".format(page) }}</strong> / <strong>{{ "{:,}".format(total_pages) }}</strong> ({{ per_page }} data/hal)</span>
+  </div>
+
+  <!-- Sheet 1: Hasil Preprocessing & Klasifikasi -->
+  {% if tab == 'processed' %}
+    {% if label_rows %}
+    <div class="table-wrap excel-table-wrap">
+      <table class="data-table excel-sheet-table">
+        <thead>
+          <tr>
+            <th class="col-row-num">#</th>
+            <th>ID Review</th>
+            <th>Nama Kafe</th>
+            <th>Sub-Kalimat Ulasan</th>
+            <th>Teks Hasil Preprocessing (Cleaning–Stemming)</th>
+            <th>Aspek</th>
+            <th>Label Data</th>
+            <th>Prediksi Model MNB</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in label_rows %}
+          <tr>
+            <td class="col-row-num">{{ "{:,}".format(row.no) }}</td>
+            <td class="muted">{{ row.review_id }}</td>
+            <td><strong>{{ row.nama_kafe }}</strong></td>
+            <td>{{ row.sub_kalimat }}</td>
+            <td><code class="excel-code-cell">{{ row.teks_preprocessed }}</code></td>
+            <td><span class="tag">{{ row.aspek|replace("_", " ")|title }}</span></td>
+            <td><span class="class-dot class-{{ row.sentimen }}">{{ row.sentimen|title }}</span></td>
+            <td>
+              <span class="class-dot class-{{ row.prediksi_mnb }}">{{ row.prediksi_mnb|title }}</span>
+              {% if row.cocok %}
+              <span class="excel-match-ok" title="Prediksi model sama dengan label">✓</span>
+              {% else %}
+              <span class="excel-match-diff" title="Prediksi model berbeda dengan label">≠</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="flash flash-info" style="margin-top:1rem;">Tidak ada data yang sesuai filter, atau jalankan preprocessing di <a href="{{ url_for('dataset.index') }}">Upload Dataset</a>.</div>
+    {% endif %}
+
+  <!-- Sheet 2: Data Mentah -->
+  {% else %}
+    {% if raw_rows %}
+    <div class="table-wrap excel-table-wrap">
+      <table class="data-table excel-sheet-table">
+        <thead>
+          <tr>
+            <th class="col-row-num">#</th>
+            <th>Nama Kafe</th>
+            <th>Teks Ulasan Asli</th>
+            <th>Rating</th>
+            <th>Status Valid</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in raw_rows %}
+          <tr>
+            <td class="col-row-num">{{ "{:,}".format(row.no) }}</td>
+            <td><strong>{{ row.nama_kafe }}</strong></td>
+            <td>{{ row.teks_ulasan }}</td>
+            <td>★ {{ row.rating_ulasan }}</td>
+            <td>
+              {% if row.valid|string|lower == 'true' or row.valid == True %}
+              <span class="dataset-badge badge-active">Valid</span>
+              {% else %}
+              <span class="dataset-badge badge-idle">Terfilter</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="flash flash-info" style="margin-top:1rem;">Tidak ada ulasan mentah yang cocok dengan kata pencarian.</div>
+    {% endif %}
+  {% endif %}
+
+  <!-- Navigasi Paginasi -->
+  {% if total_pages > 1 %}
+  <div class="excel-pagination-bar">
+    <div class="pagination-buttons">
+      {% if page > 1 %}
+      <a class="page-btn" href="{{ url_for('preprocessing.index', tab=tab, q=search_q, aspek=filter_aspek, sentimen=filter_sentimen, page=1) }}" title="Halaman Pertama">« Awal</a>
+      <a class="page-btn" href="{{ url_for('preprocessing.index', tab=tab, q=search_q, aspek=filter_aspek, sentimen=filter_sentimen, page=page-1) }}">‹ Sebelumnya</a>
+      {% else %}
+      <span class="page-btn is-disabled">« Awal</span>
+      <span class="page-btn is-disabled">‹ Sebelumnya</span>
+      {% endif %}
+
+      {% for p in page_items %}
+        {% if p is none %}
+        <span class="page-ellipsis">…</span>
+        {% elif p == page %}
+        <span class="page-btn is-current">{{ "{:,}".format(p) }}</span>
+        {% else %}
+        <a class="page-btn" href="{{ url_for('preprocessing.index', tab=tab, q=search_q, aspek=filter_aspek, sentimen=filter_sentimen, page=p) }}">{{ "{:,}".format(p) }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page < total_pages %}
+      <a class="page-btn" href="{{ url_for('preprocessing.index', tab=tab, q=search_q, aspek=filter_aspek, sentimen=filter_sentimen, page=page+1) }}">Selanjutnya ›</a>
+      <a class="page-btn" href="{{ url_for('preprocessing.index', tab=tab, q=search_q, aspek=filter_aspek, sentimen=filter_sentimen, page=total_pages) }}" title="Halaman Terakhir">Akhir »</a>
+      {% else %}
+      <span class="page-btn is-disabled">Selanjutnya ›</span>
+      <span class="page-btn is-disabled">Akhir »</span>
+      {% endif %}
+    </div>
+
+    <form method="get" action="{{ url_for('preprocessing.index') }}" class="page-jump-form">
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <input type="hidden" name="q" value="{{ search_q }}">
+      <input type="hidden" name="aspek" value="{{ filter_aspek }}">
+      <input type="hidden" name="sentimen" value="{{ filter_sentimen }}">
+      <label for="jump-page-input">Lompat ke hal:</label>
+      <input id="jump-page-input" type="number" name="page" min="1" max="{{ total_pages }}" value="{{ page }}" class="page-jump-input">
+      <button type="submit" class="btn-sm btn-outline">Buka</button>
+    </form>
+  </div>
+  {% endif %}
 </section>
 {% else %}
-<div class="flash flash-info">Data penelitian belum tersedia. Hubungi pengelola aplikasi.</div>
+<div class="flash flash-info">Data penelitian belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Upload Dataset</a> untuk memulai.</div>
 {% endif %}
 {% endblock %}

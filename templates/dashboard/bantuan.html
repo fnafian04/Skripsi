@@ -1,43 +1,226 @@
 {% extends "base.html" %}
-{% block title %}Bantuan — Sistem Analisis Ulasan Kafe{% endblock %}
+{% block title %}Bantuan & Panduan — Nafinder Sistem Rekomendasi Kafe WFC{% endblock %}
 {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Panduan penggunaan</p>
-  <h1>Mulai menggunakan sistem</h1>
-  <p class="lede">Pilih kafe, lihat ringkasan pengalaman pelanggan, atau coba analisis sebuah ulasan. Tidak perlu pengetahuan teknis.</p>
+  <p class="eyebrow">Panduan penggunaan sistem</p>
+  <h1>Alur & Petunjuk Penggunaan Nafinder</h1>
+  <p class="lede">Halaman ini menjelaskan alur lengkap pemakaian sistem — mulai dari mencari rekomendasi kafe untuk <em>Work From Cafe</em> (WFC) hingga memahami cara kerja pengolahan data dan model kecerdasan buatan di balik layar.</p>
 </header>
 
+<!-- 1. Alur Penggunaan Interaktif dengan Panah Visual -->
+<section class="workflow-panel">
+  <div class="section-heading" style="margin-top:0;">
+    <div>
+      <p class="eyebrow">Peta navigasi bertahap</p>
+      <h2>Klik setiap tahap untuk melihat panduan detail</h2>
+    </div>
+    <span class="sinta-pill sinta-pill-matcha">Urutan Awam ➔ Teknis</span>
+  </div>
+
+  <div class="help-flow-track" role="tablist" aria-label="Tahapan penggunaan sistem">
+    <button type="button" class="help-flow-node is-active" data-help-step="1" role="tab" aria-selected="true">
+      <span class="help-flow-num">1</span>
+      <strong>Cari Kafe</strong>
+      <small>Untuk pencari tempat WFC</small>
+    </button>
+    <div class="help-flow-arrow" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+    </div>
+    <button type="button" class="help-flow-node" data-help-step="2" role="tab" aria-selected="false">
+      <span class="help-flow-num">2</span>
+      <strong>Ringkasan</strong>
+      <small>Statistik & grafik SINTA</small>
+    </button>
+    <div class="help-flow-arrow" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+    </div>
+    <button type="button" class="help-flow-node" data-help-step="3" role="tab" aria-selected="false">
+      <span class="help-flow-num">3</span>
+      <strong>Upload Dataset</strong>
+      <small>Proses & unduh CSV</small>
+    </button>
+    <div class="help-flow-arrow" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+    </div>
+    <button type="button" class="help-flow-node" data-help-step="4" role="tab" aria-selected="false">
+      <span class="help-flow-num">4</span>
+      <strong>Pengolahan Data</strong>
+      <small>Inspeksi tabel hasil teks</small>
+    </button>
+    <div class="help-flow-arrow" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+    </div>
+    <button type="button" class="help-flow-node" data-help-step="5" role="tab" aria-selected="false">
+      <span class="help-flow-num">5</span>
+      <strong>Uji Model & Metode</strong>
+      <small>Akurasi & rumus matematis</small>
+    </button>
+  </div>
+
+  <div class="help-detail-box" id="help-detail-box" aria-live="polite">
+    <div class="help-detail-head">
+      <span class="badge badge-matcha" id="help-detail-tag">Langkah 1 — Pengguna Umum</span>
+      <h3 id="help-detail-title">Cari Kafe WFC Sesuai Kebutuhan Fasilitas</h3>
+    </div>
+    <p id="help-detail-desc">Buka menu <strong>Cari Kafe</strong> pada sidebar kiri. Anda dapat mengetik nama atau alamat kafe, lalu mencentang filter fasilitas yang wajib tersedia seperti <strong>Buka 24 Jam</strong>, <strong>Wi-Fi</strong>, <strong>Stopkontak</strong>, dan <strong>Meja Kerja</strong>.</p>
+    <div class="help-detail-cols">
+      <div>
+        <strong>Yang Perlu Diperhatikan:</strong>
+        <ul id="help-detail-points">
+          <li>Peringkat <strong>#1, #2, #3</strong> disusun berdasarkan nilai <strong>Skor Rekomendasi (0–100)</strong> tertinggi.</li>
+          <li>Kartu setiap kafe menampilkan rincian pembentuk skor (70% Sentimen WFC + 30% Rating Maps) serta <strong>Diagram Peta Pujian 6 Aspek</strong> bergaya SINTA.</li>
+          <li>Klik tombol hijau <em>Buka di Maps</em> untuk melihat lokasi persis di Google Maps.</li>
+        </ul>
+      </div>
+      <div>
+        <strong>Tips Penggunaan:</strong>
+        <p id="help-detail-tip" style="margin:.35rem 0 0;">Jika hasil pencarian kosong saat mencentang keempat filter sekaligus, kurangi satu centang fasilitas untuk melihat pilihan alternatif terdekat.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Diagram Visual Alur Pembentukan Skor Rekomendasi -->
+<section class="workflow-panel">
+  <div class="section-heading" style="margin-top:0;">
+    <div>
+      <p class="eyebrow">Logika peringkat kafe</p>
+      <h2>Bagaimana Skor Rekomendasi (0–100) Dihitung?</h2>
+    </div>
+  </div>
+  <div class="help-formula-flow">
+    <div class="formula-flow-card">
+      <span class="dataset-badge badge-done">Komponen Utama (70%)</span>
+      <strong>Sentimen Positif Fasilitas WFC</strong>
+      <p>Persentase ulasan pelanggan yang memuji aspek <em>Fasilitas WFC</em> (Wi-Fi, stopkontak, meja, kenyamanan kerja). Jika ulasan WFC belum tersedia khusus, digunakan rata-rata sentimen positif aspek lain.</p>
+    </div>
+    <div class="help-flow-op" aria-hidden="true">+</div>
+    <div class="formula-flow-card">
+      <span class="dataset-badge badge-semprog">Komponen Pendukung (30%)</span>
+      <strong>Rating Google Maps (Skala 1–5)</strong>
+      <p>Nilai bintang Google Maps dikonversi ke skala 0–100 (<code>rating / 5 × 100</code>), lalu dikalikan bobot 30% agar reputasi umum tempat tetap diperhitungkan secara seimbang.</p>
+    </div>
+    <div class="help-flow-op help-flow-op-arrow" aria-hidden="true">➔</div>
+    <div class="formula-flow-card formula-flow-result">
+      <span class="dataset-badge badge-active">Hasil Akhir</span>
+      <strong>Skor Akhir & Peringkat (#1, #2, ...)</strong>
+      <p>Total poin (0–100) mengurutkan kafe terbaik untuk WFC dari posisi teratas hingga terbawah secara objektif dan transparan.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Kamus Enam Aspek & Arti Sentimen -->
 <section class="help-grid">
   <article class="help-card">
-    <span class="help-number">1</span>
-    <h2>Cari kafe sesuai kebutuhan</h2>
-    <p>Buka <strong>Cari kafe</strong>, lalu pilih fasilitas yang Anda perlukan, seperti Wi-Fi, stopkontak, meja, atau kafe yang buka 24 jam.</p>
+    <span class="help-number">✓</span>
+    <h2>Arti Sentimen Positif & Negatif</h2>
+    <p><strong>Positif</strong> menandakan ulasan berisi pujian atau kepuasan pelanggan (misalnya <em>"wifinya kencang, nyaman buat nugas"</em>). <strong>Negatif</strong> menandakan keluhan (misalnya <em>"colokan sedikit, berisik"</em>).</p>
+  </article>
+  <article class="help-card">
+    <span class="help-number">6</span>
+    <h2>Enam Aspek Analisis Kafe</h2>
+    <p>Setiap kalimat ulasan dipetakan ke enam topik: <strong>Fasilitas WFC</strong>, <strong>Makanan & Minuman</strong>, <strong>Harga</strong>, <strong>Suasana</strong>, <strong>Pelayanan</strong>, dan <strong>Kebersihan</strong>.</p>
   </article>
   <article class="help-card">
     <span class="help-number">2</span>
-    <h2>Bandingkan pengalaman pelanggan</h2>
-    <p>Lihat rating, fasilitas, dan hal-hal yang sering dipuji atau dikeluhkan pelanggan, misalnya makanan, pelayanan, harga, suasana, dan kebersihan.</p>
-  </article>
-  <article class="help-card">
-    <span class="help-number">3</span>
-    <h2>Coba analisis sebuah ulasan</h2>
-    <p>Buka <strong>Coba analisis ulasan</strong> dan masukkan teks. Sistem akan menunjukkan topik yang dibahas serta apakah kalimatnya terdengar memuji atau mengeluh.</p>
+    <h2>Dua Dataset di Dalam Sistem</h2>
+    <p>Sistem menyimpan korpus penuh (<strong>dataset_semprog.csv</strong> — 324 kafe) untuk rekomendasi luas, serta data pembanding berlabel anotator (<strong>dataset_Nov_preprocessed.csv</strong> — 2.000 label seimbang).</p>
   </article>
 </section>
+{% endblock %}
 
-<section class="doc-callout help-callout">
-  <strong>Apa arti pendapat positif dan negatif?</strong>
-  <p><strong>Positif</strong> berarti pelanggan memuji atau merasa puas. <strong>Negatif</strong> berarti pelanggan mengeluhkan sesuatu. Contoh: “makanannya enak” adalah pujian untuk makanan, sedangkan “tempatnya sempit” adalah keluhan tentang suasana. Hasil sistem adalah perkiraan berdasarkan pola ulasan yang pernah dipelajari.</p>
-</section>
+{% block scripts %}
+<script>
+(function () {
+  const stepData = {
+    1: {
+      tag: 'Langkah 1 — Pengguna Umum',
+      title: 'Cari Kafe WFC Sesuai Kebutuhan Fasilitas',
+      desc: 'Buka menu <strong>Cari Kafe</strong> pada sidebar kiri. Anda dapat mengetik nama atau alamat kafe, lalu mencentang filter fasilitas yang wajib tersedia seperti <strong>Buka 24 Jam</strong>, <strong>Wi-Fi</strong>, <strong>Stopkontak</strong>, dan <strong>Meja Kerja</strong>.',
+      points: [
+        'Peringkat <strong>#1, #2, #3</strong> disusun berdasarkan nilai <strong>Skor Rekomendasi (0–100)</strong> tertinggi.',
+        'Kartu setiap kafe menampilkan rincian pembentuk skor (70% Sentimen WFC + 30% Rating Maps) serta <strong>Diagram Peta Pujian 6 Aspek</strong> bergaya SINTA.',
+        'Klik tombol hijau <em>Buka di Maps</em> untuk melihat lokasi persis di Google Maps.'
+      ],
+      tip: 'Jika hasil pencarian kosong saat mencentang keempat filter sekaligus, kurangi satu centang fasilitas untuk melihat pilihan alternatif terdekat.'
+    },
+    2: {
+      tag: 'Langkah 2 — Gambaran Umum',
+      title: 'Pantau Statistik & Diagram Kekuatan Kafe di Ringkasan',
+      desc: 'Menu <strong>Ringkasan</strong> menyajikan jumlah total kafe aktif, ulasan pelanggan, label sentimen yang terkumpul, serta akurasi model klasifikasi dari dataset yang sedang aktif.',
+      points: [
+        'Grafik kiri memperlihatkan perbandingan jumlah pujian (Positif) vs keluhan (Negatif) tiap aspek.',
+        'Diagram donat bergaya SINTA menampilkan peta sebaran proporsi kekuatan 6 aspek kafe WFC di Kota Malang.',
+        'Arahkan kursor (<em>hover</em>) pada irisan diagram atau batang grafik untuk melihat angka detailnya.'
+      ],
+      tip: 'Semua angka dan diagram di halaman Ringkasan diperbarui otomatis mengikuti dataset yang sedang Anda aktifkan di menu Upload Dataset.'
+    },
+    3: {
+      tag: 'Langkah 3 — Manajemen Data',
+      title: 'Unggah CSV, Jalankan Preprocessing, & Unduh Hasilnya',
+      desc: 'Menu <strong>Upload Dataset</strong> memungkinkan Anda berpindah antara dataset penuh (<em>dataset_semprog.csv</em>), dataset tervalidasi anotator (<em>dataset_Nov_preprocessed.csv</em>), atau mengunggah file CSV ulasan baru.',
+      points: [
+        'Klik <strong>Jalankan Preprocessing / Preprocessing Ulang</strong> untuk mengamati alur pembersihan 6 tahap (jeda visual 1 detik per tahap).',
+        'Tombol <strong>Jalankan Klasifikasi</strong> otomatis terkunci jika preprocessing belum selesai dilakukan.',
+        'Setelah preprocessing selesai, Anda dapat menekan tombol <strong>⬇ Unduh Hasil Preprocessing (.csv)</strong> untuk memeriksa datanya di Excel.'
+      ],
+      tip: 'Dua dataset penelitian dikunci agar aman, sementara dataset tambahan yang Anda unggah sendiri memiliki tombol Hapus.'
+    },
+    4: {
+      tag: 'Langkah 4 — Inspeksi Teks',
+      title: 'Periksa Hasil Preprocessing & Prediksi per Baris Data',
+      desc: 'Menu <strong>Contoh Pengolahan Data</strong> menampilkan seluruh baris ulasan mentah maupun hasil akhir preprocessing dan prediksi klasifikasi dalam tampilan tabel bergaya spreadsheet/Excel (15 baris per halaman).',
+      points: [
+        'Bandingkan kolom <em>Sub-Kalimat Ulasan</em> dengan kolom <em>Teks Setelah Preprocessing</em> untuk melihat efek cleaning, normalisasi kata alay, penghapusan stopword, dan stemming.',
+        'Lihat kolom <em>Label Sentimen</em> dan <em>Prediksi Model MNB</em> berdampingan secara transparan.',
+        'Gunakan navigasi halaman (15 data per halaman) atau filter aspek/sentimen untuk menelusuri seluruh ribuan baris data.'
+      ],
+      tip: 'Anda dapat berpindah antara tab Data Hasil Preprocessing & Klasifikasi dan tab Data Ulasan Mentah di bagian atas tabel.'
+    },
+    5: {
+      tag: 'Langkah 5 — Evaluasi & Teori Informatika',
+      title: 'Uji Model Langsung & Pelajari Formula Matematis',
+      desc: 'Menu <strong>Uji Model</strong> digunakan untuk menguji kalimat ulasan bebas secara langsung sekaligus melihat Confusion Matrix serta metrik Precision, Recall, dan F1-Score. Menu <strong>Penjelasan Metode</strong> memaparkan rumus matematis TF-IDF dan Multinomial Naive Bayes.',
+      points: [
+        'Pada <strong>Uji Model</strong>, ketik kalimat ulasan baru (atau klik tombol contoh cepat) untuk melihat bagaimana sistem memecah sub-kalimat dan menebak sentimen per aspek.',
+        'Pelajari tabel Confusion Matrix untuk melihat seberapa tepat prediksi sistem pada data uji 20% anti-kebocoran.',
+        'Pada <strong>Penjelasan Metode</strong>, tersedia formulasi lengkap Lexicon Scoring, Group Shuffle Split, TF-IDF L2 Norm, dan Laplace Smoothing (α=0,1).'
+      ],
+      tip: 'Saat memasukkan kalimat uji pada Uji Model, pastikan menyertakan kata aspek kafe (misal: kopi, harga, tempat, wifi, pelayanan, atau kebersihan).'
+    }
+  };
 
-<div class="dashboard-columns">
-  <a class="editorial-panel panel-dark text-link" href="{{ url_for('rekomendasi.index') }}">
-    <p class="eyebrow">Langsung mulai</p>
-    <h2>Cari kafe sekarang →</h2>
-  </a>
-  <a class="editorial-panel text-link" href="{{ url_for('hasil.index') }}">
-    <p class="eyebrow">Tes singkat</p>
-    <h2>Coba analisis ulasan →</h2>
-  </a>
-</div>
+  const nodes = document.querySelectorAll('.help-flow-node');
+  const tagEl = document.getElementById('help-detail-tag');
+  const titleEl = document.getElementById('help-detail-title');
+  const descEl = document.getElementById('help-detail-desc');
+  const pointsEl = document.getElementById('help-detail-points');
+  const tipEl = document.getElementById('help-detail-tip');
+
+  nodes.forEach(function (node) {
+    node.addEventListener('click', function () {
+      const step = node.dataset.helpStep;
+      const d = stepData[step];
+      if (!d) return;
+      nodes.forEach(function (n) {
+        n.classList.remove('is-active');
+        n.setAttribute('aria-selected', 'false');
+      });
+      node.classList.add('is-active');
+      node.setAttribute('aria-selected', 'true');
+
+      tagEl.textContent = d.tag;
+      titleEl.textContent = d.title;
+      descEl.innerHTML = d.desc;
+      tipEl.textContent = d.tip;
+      pointsEl.innerHTML = '';
+      d.points.forEach(function (pt) {
+        const li = document.createElement('li');
+        li.innerHTML = pt;
+        pointsEl.appendChild(li);
+      });
+    });
+  });
+}());
+</script>
 {% endblock %}

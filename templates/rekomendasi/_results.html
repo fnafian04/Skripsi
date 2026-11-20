@@ -1,36 +1,75 @@
 <div id="recommendation-results">
 {% if kafe_list %}
-<div class="listing-heading"><div><p class="eyebrow">Daftar pilihan</p><h2>{{ total_cocok }} kafe untuk dipertimbangkan</h2>{% if search %}<p class="muted">Hasil pencarian untuk “{{ search }}”.</p>{% endif %}</div><span class="muted">Menampilkan {{ kafe_list|length }} teratas</span></div>
+<div class="listing-heading">
+  <div>
+    <p class="eyebrow">Daftar peringkat kafe</p>
+    <h2>{{ total_cocok }} kafe untuk dipertimbangkan</h2>
+    {% if search %}<p class="muted">Hasil pencarian untuk “{{ search }}”.</p>{% endif %}
+  </div>
+  <span class="muted">Menampilkan Peringkat #1 s/d #{{ kafe_list|length }}</span>
+</div>
 
 <div class="recommendation-list">
     {% for k in kafe_list %}
-    <article class="recommendation-card{% if loop.index <= 3 %} recommendation-card-top{% endif %}">
-      <div class="rank{% if loop.index <= 3 %} rank-top-{{ loop.index }}{% endif %}">{{ '%02d'|format(loop.index) }}</div>
+    <article class="recommendation-card recommendation-card-sinta{% if loop.index <= 3 %} recommendation-card-top{% endif %}">
+      <!-- Kolom 1: Badge Peringkat Jelas -->
+      <div class="rank-box{% if loop.index <= 3 %} rank-box-top-{{ loop.index }}{% endif %}">
+        <span class="rank-caption">Peringkat</span>
+        <strong class="rank-number">#{{ loop.index }}</strong>
+      </div>
+
+      <!-- Kolom 2: Identitas Kafe & Fasilitas -->
       <div class="recommendation-main">
-        <p class="eyebrow">Rekomendasi #{{ loop.index }}</p><h3>{{ k.nama }}</h3><p class="muted">{{ k.alamat }}</p><a class="maps-button" href="{{ k.url_maps }}" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-6.1 7-12A7 7 0 1 0 5 9c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg><span>Buka di Maps</span></a>
-        <div class="tag-row">
+        <p class="eyebrow">Peringkat #{{ loop.index }} Rekomendasi WFC</p>
+        <h3>{{ k.nama }}</h3>
+        <p class="muted">{{ k.alamat }}</p>
+        <div class="tag-row" style="margin-top:.55rem;">
           {% if k.wifi %}<span class="tag{% if f.wifi %} tag-matcha{% endif %}">Wi-Fi</span>{% endif %}
           {% if k.stopkontak %}<span class="tag{% if f.stopkontak %} tag-matcha{% endif %}">Stopkontak</span>{% endif %}
           {% if k.meja_kerja %}<span class="tag{% if f.meja_kerja %} tag-matcha{% endif %}">Meja nugas</span>{% endif %}
           {% if k.buka_24jam %}<span class="tag{% if f.buka_24jam %} tag-matcha{% endif %}">24 jam</span>{% endif %}
         </div>
+        <a class="maps-button" href="{{ k.url_maps }}" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-6.1 7-12A7 7 0 1 0 5 9c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg><span>Buka di Maps</span></a>
       </div>
+
+      <!-- Kolom 3: Skor Rekomendasi & Pembentuknya (Jelas Tanpa Ambigu) -->
       <div class="recommendation-score">
-        <span>Skor urutan (0–100)</span>
-        <strong>{{ '%.1f'|format(k.skor_akhir) }}</strong>
+        <span class="score-title">Skor Rekomendasi WFC</span>
+        <div class="score-main-value">
+          <strong>{{ '%.1f'|format(k.skor_akhir) }}</strong><small>/ 100</small>
+        </div>
         <div class="score-meter" aria-hidden="true"><span style="width: {{ [k.skor_akhir, 100]|min }}%"></span></div>
-        <small>{{ '%.1f'|format(k.persen_wfc) }}% positif WFC</small>
+        <div class="score-breakdown-list">
+          <div class="score-breakdown-item">
+            <span>{% if k.wfc_fallback_used %}Rerata Positif (70%){% else %}Sentimen WFC (70%){% endif %}</span>
+            <b>{{ '%.1f'|format(k.persen_wfc) }}% <em>(+{{ '%.1f'|format(k.poin_wfc) }} pt)</em></b>
+          </div>
+          <div class="score-breakdown-item">
+            <span>Rating Maps (30%)</span>
+            <b>★ {{ '%.1f'|format(k.rating_gmaps) }}/5 <em>(+{{ '%.1f'|format(k.poin_rating) }} pt)</em></b>
+          </div>
+          <div class="score-breakdown-item">
+            <span>Data Ulasan</span>
+            <b>{{ "{:,}".format(k.jumlah_ulasan) }} ulasan</b>
+          </div>
+        </div>
       </div>
-      <div class="recommendation-meta"><div><span>Rating di Google Maps</span><strong>★ {{ '%.1f'|format(k.rating_gmaps) }} dari 5</strong><small>{{ "{:,}".format(k.jumlah_ulasan) }} ulasan pada data penelitian</small></div><div><span>Hal yang sering dipuji</span>
-        {% if k.kekuatan %}<div class="tag-row">{% for item in k.kekuatan %}<span class="tag">{{ item }}</span>{% endfor %}</div>
-        {% else %}<span class="muted">Belum ada sinyal kuat</span>{% endif %}
-      </div></div>
+
+      <!-- Kolom 4: Diagram Interaktif Bergaya SINTA (Peta Pujian 6 Aspek) -->
+      <div class="recommendation-chart-col">
+        <span class="score-title">Peta Pujian 6 Aspek</span>
+        {% if k.aspek_breakdown %}
+        <div class="cafe-sinta-donut" data-cafe-name="{{ k.nama }}" data-aspek='{{ k.aspek_breakdown|tojson }}'></div>
+        {% else %}
+        <p class="muted" style="font-size:.8rem; margin:.5rem 0;">Belum ada rincian pujian aspek pada data.</p>
+        {% endif %}
+      </div>
     </article>
     {% endfor %}
 </div>
 {% else %}
   {% if total_ulasan_tersimpan == 0 %}
-  <div class="flash flash-info">Belum ada hasil rekomendasi yang tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data yang digunakan</a> untuk memeriksa status sistem.</div>
+  <div class="flash flash-info">Belum ada hasil rekomendasi yang tersedia. Buka <a href="{{ url_for('dataset.index') }}">Upload Dataset</a> untuk memeriksa status sistem.</div>
   {% else %}
   <div class="flash flash-info">Tidak ada kafe yang cocok dengan kombinasi pencarian dan filter fasilitas yang dipilih</div>
   {% endif %}

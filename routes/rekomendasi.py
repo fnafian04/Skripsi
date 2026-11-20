@@ -83,9 +83,23 @@ def index():
                 kafe_skor_map[s.kafe_id] = {
                     'aspek_dict': {},
                     'kekuatan': [],
-                    'kelemahan': []
+                    'kelemahan': [],
+                    'breakdown': [],
                 }
-            kafe_skor_map[s.kafe_id]['aspek_dict'][s.aspek] = float(s.persen_positif or 0)
+            pos_pct = float(s.persen_positif or 0)
+            pos_cnt = int(s.jumlah_positif or 0)
+            net_cnt = int(s.jumlah_netral or 0)
+            neg_cnt = int(s.jumlah_negatif or 0)
+            tot_cnt = pos_cnt + net_cnt + neg_cnt
+            kafe_skor_map[s.kafe_id]['aspek_dict'][s.aspek] = pos_pct
+            kafe_skor_map[s.kafe_id]['breakdown'].append({
+                'aspek': s.aspek,
+                'label': s.aspek.replace('_', ' ').title(),
+                'positif': pos_cnt,
+                'negatif': neg_cnt,
+                'total': tot_cnt,
+                'persen_positif': round(pos_pct, 1),
+            })
             if s.label_kekuatan:
                 kafe_skor_map[s.kafe_id]['kekuatan'].append(s.aspek.replace('_', ' ').title())
             if s.label_kelemahan:
@@ -96,20 +110,31 @@ def index():
         # yang tersimpan bersama ulasan dataset aktif.
         ranked_list = []
         for k in filtered_kafes:
-            s_data = kafe_skor_map.get(k.id, {'aspek_dict': {}, 'kekuatan': [], 'kelemahan': []})
-            
+            s_data = kafe_skor_map.get(
+                k.id, {'aspek_dict': {}, 'kekuatan': [], 'kelemahan': [], 'breakdown': []}
+            )
+
             # Persentase positif aspek fasilitas_wfc
             wfc_pos = s_data['aspek_dict'].get('fasilitas_wfc')
+            wfc_fallback_used = False
             if wfc_pos is None:
                 # Fallback: rerata sentimen positif semua aspek jika belum ada ulasan WFC khusus
+                wfc_fallback_used = True
                 all_pcts = list(s_data['aspek_dict'].values())
                 wfc_pos = sum(all_pcts) / len(all_pcts) if all_pcts else 0.0
 
             rating_gmaps = float(k.rating_gmaps) if k.rating_gmaps is not None else 0.0
             rating_norm = (rating_gmaps / 5.0) * 100.0
 
+            poin_wfc = round(wfc_pos * 0.7, 1)
+            poin_rating = round(rating_norm * 0.3, 1)
             # Formula Skor Rekomendasi Nafinder
             skor_akhir = round((wfc_pos * 0.7) + (rating_norm * 0.3), 1)
+            breakdown_sorted = sorted(
+                s_data['breakdown'],
+                key=lambda item: (item['positif'], item['persen_positif']),
+                reverse=True,
+            )
 
             ranked_list.append({
                 'id': k.id,
@@ -120,6 +145,9 @@ def index():
                 'rating_gmaps': rating_gmaps,
                 'jumlah_ulasan': int(ulasan_counts.get(k.id, 0)),
                 'persen_wfc': round(wfc_pos, 1),
+                'wfc_fallback_used': wfc_fallback_used,
+                'poin_wfc': poin_wfc,
+                'poin_rating': poin_rating,
                 'skor_akhir': skor_akhir,
                 'buka_24jam': bool(k.buka_24jam),
                 'wifi': bool(k.wifi),
@@ -127,6 +155,7 @@ def index():
                 'meja_kerja': bool(k.meja_kerja),
                 'kekuatan': s_data['kekuatan'],
                 'kelemahan': s_data['kelemahan'],
+                'aspek_breakdown': breakdown_sorted,
             })
 
         # Urutkan berdasarkan skor_akhir tertinggi, lalu rating gmaps, lalu jumlah ulasan
