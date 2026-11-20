@@ -4520,3 +4520,129 @@ html[data-theme="dark"] .page-loader-spinner {
     background-position: 220% 50%;
   }
 }
+
+
+/* =========================================================
+   Smooth Animated Sidebar Drawer & Visible Mobile Logout
+   ========================================================= */
+.sidebar {
+  transition: transform .3s cubic-bezier(0.22, 1, 0.36, 1), opacity .24s ease, visibility .3s ease;
+  will-change: transform;
+}
+
+.app-main {
+  transition: margin-left .3s cubic-bezier(0.22, 1, 0.36, 1), width .3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-sidebar="collapsed"] .sidebar {
+  display: flex !important;
+  transform: translateX(-104%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+html:not([data-sidebar="collapsed"]) .sidebar {
+  display: flex !important;
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(11, 35, 46, .42);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .28s ease, visibility .28s ease;
+}
+
+@media (max-width: 960px) {
+  .sidebar-launcher {
+    transition: left .3s cubic-bezier(0.22, 1, 0.36, 1), background .2s ease, color .2s ease, border-color .2s ease;
+  }
+
+  html[data-sidebar="expanded"] .sidebar-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  html[data-sidebar="expanded"] .sidebar-launcher {
+    left: calc(min(272px, 84vw) - 3.25rem) !important;
+    top: .95rem !important;
+    background: rgba(255, 255, 255, .14);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, .26);
+    box-shadow: none;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(272px, 84vw);
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 1001;
+    box-shadow: 14px 0 36px rgba(11, 35, 46, .34);
+  }
+
+  .sidebar-head {
+    padding-right: 2.8rem;
+    flex: none;
+  }
+
+  .sidebar .sidebar-rule {
+    margin: .6rem .4rem .5rem !important;
+    flex: none;
+  }
+
+  .sidebar .sidebar-label {
+    margin: 0 .6rem .3rem;
+    font-size: .64rem;
+  }
+
+  .sidebar .links {
+    gap: .18rem;
+  }
+
+  .sidebar .links a {
+    min-height: 38px;
+    padding: .42rem .7rem;
+    font-size: .82rem;
+  }
+
+  .sidebar-bottom {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    margin-top: auto;
+    padding: .65rem 0 .15rem;
+    border-top: 1px solid rgba(255, 255, 255, .14);
+    background: linear-gradient(180deg, rgba(11, 67, 84, .88), #0b4354 35%);
+    flex: none;
+  }
+
+  .sidebar-bottom .nav-exit {
+    min-height: 40px;
+    padding: .5rem .75rem;
+    font-weight: 700;
+    color: #ffb4a2;
+    background: rgba(217, 107, 82, .16);
+    border: 1px solid rgba(217, 107, 82, .34);
+    border-radius: 10px;
+  }
+
+  .sidebar-bottom .nav-exit:hover {
+    color: #ffffff;
+    background: rgba(217, 107, 82, .28);
+  }
+}
