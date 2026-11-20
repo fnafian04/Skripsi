@@ -103,8 +103,12 @@ def run_migration():
         sys.exit(1)
 
     schema_sql = schema_path.read_text(encoding="utf-8")
+    # Bersihkan baris komentar agar pernyataan CREATE TABLE tidak terbuang
+    clean_lines = [line for line in schema_sql.splitlines() if not line.strip().startswith("--")]
+    clean_sql = "\n".join(clean_lines)
+    statements = [stmt.strip() for stmt in clean_sql.split(";") if stmt.strip()]
+
     with supabase_engine.begin() as s_conn:
-        statements = [stmt.strip() for stmt in schema_sql.split(";") if stmt.strip() and not stmt.strip().startswith("--")]
         for stmt in statements:
             s_conn.execute(text(stmt))
     print("  [+] Seluruh tabel dan indeks berhasil dibuat di Supabase!")
@@ -116,6 +120,11 @@ def run_migration():
         "evaluasi_model", "riwayat_upload", "validasi_v4", "validasi_v4_aspek",
         "validasi_v5", "validasi_v5_aspek"
     ]
+
+    BOOL_COLUMNS = {
+        'buka_24jam', 'wifi', 'stopkontak', 'meja_kerja', 'valid',
+        'label_kekuatan', 'label_kelemahan'
+    }
 
     for table in tables:
         with mysql_engine.connect() as m_conn:
@@ -130,7 +139,9 @@ def run_migration():
         for r in rows:
             row_dict = dict(r)
             for k, v in row_dict.items():
-                if isinstance(v, (dict, list)):
+                if k in BOOL_COLUMNS:
+                    row_dict[k] = bool(v) if v is not None else None
+                elif isinstance(v, (dict, list)):
                     row_dict[k] = json.dumps(v)
             converted_rows.append(row_dict)
 
