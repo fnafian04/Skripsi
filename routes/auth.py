@@ -1,9 +1,4 @@
-"""
-Blueprint autentikasi — login & register (kerangka).
-
-Belum ada pengecekan password sungguhan: fungsi hash & query DB sudah
-ditulis, tinggal dirangkai saat bagian login dikerjakan beneran.
-"""
+"""Login and account registration routes."""
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -22,11 +17,10 @@ def login():
         db = SessionLocal()
         try:
             user = db.query(User).filter(User.username == username).first()
-            # TODO: ganti ke check_password_hash saat data user sudah ada
             if user and check_password_hash(user.password_hash, password):
                 session['user_id'] = user.id
                 session['username'] = user.username
-                return redirect(url_for('dashboard.index'))
+                return redirect(url_for('dashboard.bantuan'))
             flash('Username atau password salah.', 'error')
         finally:
             db.close()

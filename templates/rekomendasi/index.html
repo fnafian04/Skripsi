@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Rekomendasi Kafe WFC — Nafinder{% endblock %}
+{% block title %}Cari Kafe — Sistem Analisis Ulasan Kafe{% endblock %}
 {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Peta rasa / Malang</p>
-  <h1>Temukan meja untuk bekerja</h1>
-  <p class="lede">Peringkat berdasarkan <strong>sentimen positif aspek WFC (70%)</strong> dan <strong>rating Google Maps (30%)</strong></p>
+  <p class="eyebrow">Temukan tempat untuk bekerja atau belajar</p>
+  <h1>Cari kafe di Kota Malang</h1>
+  <p class="lede">Cari berdasarkan nama, lalu pilih fasilitas yang penting bagi Anda. Daftar diurutkan dengan mempertimbangkan pendapat pelanggan dan rating Google Maps.</p>
 </header>
 
 <form method="get" class="filter-form">
   <div class="search-field">
-    <label for="cafe-search" class="eyebrow">Cari kafe</label>
+    <label for="cafe-search" class="eyebrow">Nama atau alamat kafe</label>
     <div class="search-control">
       <input id="cafe-search" name="q" type="search" value="{{ search }}" maxlength="100" placeholder="Nama, alamat, atau place ID" autocomplete="off">
     </div>
-    <small class="muted">Ketik minimal 3 huruf untuk mencari</small>
+    <small class="muted">Ketik minimal 3 huruf untuk mencari, atau kosongkan untuk melihat semua kafe.</small>
   </div>
-  <div class="filter-intro"><span class="eyebrow">Saring suasana</span><strong>Fasilitas pentingmu</strong></div>
+  <div class="filter-intro"><span class="eyebrow">Pilih fasilitas</span><strong>Yang Anda perlukan</strong></div>
   <label class="check-pill"><input type="checkbox" name="buka_24jam" value="1" onchange="this.form.submit()" {% if f.buka_24jam %}checked{% endif %}><span>Buka 24 jam</span></label>
   <label class="check-pill"><input type="checkbox" name="wifi" value="1" onchange="this.form.submit()" {% if f.wifi %}checked{% endif %}><span>Wi-Fi</span></label>
   <label class="check-pill"><input type="checkbox" name="stopkontak" value="1" onchange="this.form.submit()" {% if f.stopkontak %}checked{% endif %}><span>Stopkontak</span></label>
@@ -26,6 +26,10 @@
   </a>
   {% endif %}
 </form>
+<div class="doc-callout">
+  <strong>Bagaimana daftar ini diurutkan?</strong>
+  <p>Kafe dengan skor lebih tinggi tampil lebih dulu. Skor mempertimbangkan pendapat positif tentang fasilitas untuk bekerja atau belajar (70%) dan rating Google Maps (30%). Jika ulasan belum membahas fasilitas tersebut secara khusus, sistem memakai rata-rata pendapat positif dari topik lain yang tersedia.</p>
+</div>
 <script>
 const cafeSearch = document.getElementById('cafe-search');
 const filterForm = cafeSearch ? cafeSearch.form : null;

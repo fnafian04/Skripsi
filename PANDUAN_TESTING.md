@@ -1,27 +1,27 @@
-# Langkah uji Nafinder — sebelum dataset penelitian
+# Panduan mencoba Nafinder
 
-File uji: `uploads_tmp/ulasan_wfc_testing_5000.csv` (5.000 ulasan valid,
-tersebar pada 324 kafe). File ini untuk memeriksa alur dan waktu proses saja;
-hasil metriknya bukan hasil penelitian final dan tidak perlu sama dengan hasil
-pengujian di Colab.
-
-## Mulai
+## Menjalankan aplikasi
 
 1. Nyalakan Laragon dengan **Start All**.
-2. Jalankan `jalankan.bat` dari folder aplikasi, lalu buka `http://127.0.0.1:5000` dan login.
-3. Buka **Kelola Dataset**. Pilih `ulasan_wfc_testing_5000.csv` dari folder `uploads_tmp` aplikasi, lalu **Unggah dataset baru**.
-4. Klik **Mulai preprocessing**. Status, tahap berjalan, persen, dan waktu berjalan akan diperbarui pada panel bawah. Tunggu hingga status menunjukkan selesai.
-5. Setelah tahap pertama selesai, tombol **Jalankan klasifikasi** akan aktif. Klik dan tunggu hasilnya; halaman Hasil Klasifikasi menampilkan metrik.
-6. Catat waktu yang tertera dan kirim screenshot/error bila ada.
+2. Dari PowerShell, jalankan aplikasi:
 
-Untuk kembali ke keadaan bersih, gunakan **Hapus dataset dan hasil**. Tindakan ini permanen: menghapus staging upload, cache, label/ulasan/aspek, dan evaluasi aplikasi dari database; data master kafe dipertahankan. Jangan gunakan pada dataset penelitian yang ingin dipertahankan.
+   ```powershell
+   cd "D:\Skripsi\Road to Semhas\program"
+   python app.py
+   ```
 
-Sesudah alur pendek berhasil, unggah `ulasan_wfc_final.csv` untuk proses penuh. Berkas 5.000 baris adalah fixture uji dan tidak untuk angka skripsi.
+3. Buka `http://127.0.0.1:5000` lalu masuk ke akun.
+4. Setelah masuk, halaman **Bantuan & panduan** menjelaskan cara menggunakan sistem.
 
-## Perbandingan dengan Colab
+## Mencoba fitur pengguna
 
-Hasil aplikasi dan hasil Colab disimpan sebagai hasil eksperimen masing-masing.
-Tidak ada angka Colab yang dipakai sebagai target aplikasi. Bandingkan
-accuracy, precision, recall, F1, confusion matrix, jumlah baris, distribusi
-kelas, hasil split, dan parameter. Jika berbeda, catat penyebabnya sebelum
-menyimpulkan apakah implementasi perlu diperbaiki.
+1. Buka **Rekomendasi kafe** untuk mencari kafe dan menyaringnya berdasarkan Wi-Fi, stopkontak, meja kerja, atau jam buka.
+2. Buka **Uji model**, tulis ulasan seperti “Makanannya enak, tetapi tempatnya sempit dan Wi-Fi lambat”, lalu pilih **Analisis ulasan**.
+3. Periksa aspek yang dikenali dan hasil sentimen positif atau negatifnya.
+4. Di bawah fitur uji ulasan, lihat ringkasan hasil evaluasi model serta rincian prediksi yang benar dan keliru.
+
+## Dataset penelitian
+
+Aplikasi menggunakan satu dataset final berisi 2.000 label yang telah diperiksa anotator. Dataset ini dikunci agar hasil penelitian tidak berubah karena unggahan atau penggantian data. Hasil uji yang tersimpan adalah accuracy 90,33% pada 331 contoh testing.
+
+Jangan menghapus berkas dataset, cache label, atau data evaluasi pada database jika aplikasi masih akan digunakan.

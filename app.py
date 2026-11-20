@@ -2,7 +2,7 @@ import os
 from flask import Flask, redirect, url_for
 from db import Base
 import models  # register ORM models
-from routes import auth, dashboard, dataset, hasil, rekomendasi, dokumentasi, validasi, validasi_v4, validasi_v5, riwayat_labeling
+from routes import auth, dashboard, dataset, hasil, preprocessing, rekomendasi, dokumentasi
 
 
 def create_app():
@@ -11,13 +11,10 @@ def create_app():
     app.register_blueprint(auth.bp)
     app.register_blueprint(dashboard.bp)
     app.register_blueprint(dataset.bp)
+    app.register_blueprint(preprocessing.bp)
     app.register_blueprint(hasil.bp)
     app.register_blueprint(rekomendasi.bp)
     app.register_blueprint(dokumentasi.bp)
-    app.register_blueprint(validasi.bp)
-    app.register_blueprint(validasi_v4.bp)
-    app.register_blueprint(validasi_v5.bp)
-    app.register_blueprint(riwayat_labeling.bp)
 
     @app.route('/')
     def root():

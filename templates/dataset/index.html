@@ -1,48 +1,37 @@
 {% extends "base.html" %}
-{% block title %}Kelola Dataset — Nafinder{% endblock %}
+{% block title %}Data Penelitian — Sistem Analisis Ulasan Kafe{% endblock %}
 {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Studio data / alur kerja</p>
-  <h1>Kelola Koleksi Dataset & Pipeline</h1>
-  <p class="lede">Unggah banyak dataset ulasan mentah, pilih dataset aktif, lalu jalankan preprocessing ulang dan klasifikasi MNB kapan saja</p>
+  <p class="eyebrow">Informasi data penelitian</p>
+  <h1>Data yang digunakan</h1>
 </header>
 
-<!-- 1. FORM UNGGAH DATASET BARU -->
+<!-- 1. Dataset default and optional uploads -->
 <section class="workflow-panel">
   <div class="workflow-head">
     <div>
-      <p class="eyebrow">Langkah 01 / Sumber Data</p>
-      <h2>Unggah Dataset Ulasan</h2>
-      <p class="muted">Berkas yang diunggah akan disimpan permanen di repositori server dan tidak akan terhapus setelah preprocessing</p>
+      <p class="eyebrow">Dataset awal</p>
+      <h2>Dataset final sudah tersedia</h2>
     </div>
+    <span class="dataset-badge badge-done">Siap digunakan</span>
   </div>
-  <form method="post" enctype="multipart/form-data" class="upload-row">
-    <label class="file-picker" for="dataset" id="file-picker-label">
-      <span class="file-picker-icon" id="file-picker-icon">＋</span>
-      <span>
-        <strong id="file-picker-title">Pilih Berkas CSV Ulasan</strong>
-        <small id="file-picker-desc">Format .csv · Mendukung pilih beberapa file sekaligus · Kolom: placeId, nama_kafe, teks_ulasan, rating_ulasan</small>
-      </span>
-      <input id="dataset" name="dataset" type="file" accept=".csv" multiple required>
-    </label>
-    <button type="submit" id="upload-submit-btn" class="btn-action-active">Unggah ke Repositori</button>
+  <p class="muted">Dataset final penelitian sudah dimuat otomatis sebagai pilihan awal dan tetap tersimpan. Anda juga dapat menambahkan dataset CSV lain untuk mencoba alur pengolahan dan klasifikasi. Dataset yang diunggah akan dipilih sebagai dataset aktif, tetapi tidak menimpa dataset final.</p>
+  <p class="muted">Jika ingin kembali ke hasil penelitian, pilih lagi dataset final. Hasil pengolahan dan rekomendasi akan mengikuti dataset yang sedang aktif.</p>
+  <form method="post" action="{{ url_for('dataset.upload') }}" enctype="multipart/form-data">
+    <label for="dataset-file">Tambahkan dataset CSV</label>
+    <input id="dataset-file" name="dataset_file" type="file" accept=".csv,text/csv" required>
+    <button class="btn-action-active" type="submit" {% if state.status in ['berjalan', 'menunggu'] %}disabled{% endif %}>Tambahkan dan coba</button>
   </form>
-  <p class="hint">Dataset uji <code>ulasan_wfc_testing_5000.csv</code> dan <code>ulasan_wfc_final.csv</code> sudah tersedia di repositori server di bawah</p>
+  <p class="muted">CSV untuk diproses harus memuat kolom: <code>placeId</code>, <code>nama_kafe</code>, <code>teks_ulasan</code>, <code>rating_ulasan</code>, <code>tanggal_ulasan</code>, <code>kafe_id</code>, dan <code>valid</code>.</p>
 </section>
 
-<!-- 2. REPOSITORI KOLEKSI DATASET -->
+<!-- 2. Dataset collection -->
 <section class="dataset-collection">
   <div class="section-heading">
     <div>
-      <p class="eyebrow">Repositori Server</p>
-      <h2>Koleksi Dataset Tersimpan ({{ datasets|length }})</h2>
-      <p class="muted">Pilih dataset yang ingin dijadikan sumber aktif untuk rekomendasi, validasi, dan pengujian model</p>
+      <p class="eyebrow">Pilihan dataset</p>
+      <h2>Dataset tersedia</h2>
     </div>
-    {% if state.dataset_name %}
-    <form method="post" action="{{ url_for('dataset.reset_database') }}" onsubmit="return confirm('Kosongkan hasil ulasan dan evaluasi di database? Berkas CSV fisik di server tetap aman')">
-      <button type="submit" class="btn-sm btn-outline">Bersihkan Data di Database</button>
-    </form>
-    {% endif %}
   </div>
 
   {% if datasets %}
@@ -50,12 +39,10 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Nama Berkas</th>
-          <th>Ukuran</th>
-          <th>Est. Ulasan</th>
-          <th>Waktu Unggah</th>
-          <th>Status Pipeline</th>
-          <th style="text-align: right;">Aksi</th>
+          <th>Nama dataset</th>
+          <th>Ukuran berkas</th>
+          <th>Baris data</th>
+          <th>Jenis dan pilihan</th>
         </tr>
       </thead>
       <tbody>
@@ -68,26 +55,23 @@
             {% endif %}
           </td>
           <td>{{ d.size_formatted }}</td>
-          <td>{{ "{:,}".format(d.row_count) }} baris</td>
-          <td class="muted">{{ d.uploaded_at }}</td>
+          <td>{{ "{:,}".format(d.row_count) }} contoh</td>
           <td class="pipeline-status-cell">
-            {% if d.has_labels %}
-              <span class="dataset-badge badge-done">Preprocessed</span>
+            {% if d.name == fixed_dataset %}
+            <span class="dataset-badge badge-done">Dataset final</span>
             {% else %}
-              <span class="dataset-badge badge-idle">Belum Preprocessed</span>
+            <span class="dataset-badge badge-idle">Dataset tambahan</span>
             {% endif %}
-          </td>
-          <td style="text-align: right;">
-            <div class="actions-cell" style="justify-content: flex-end; gap: 0.4rem;">
-              {% if not d.is_active %}
-              <form method="post" action="{{ url_for('dataset.activate', filename=d.name) }}" style="display:inline;">
-                <button type="submit" class="btn-sm btn-outline" title="Gunakan dataset ini sebagai data aktif">Aktifkan</button>
-              </form>
-              {% endif %}
-              <form method="post" action="{{ url_for('dataset.delete', filename=d.name) }}" onsubmit="return confirm('Hapus file {{ d.name }} dari repositori?')" style="display:inline;">
-                <button type="submit" class="btn-danger-sm" title="Hapus berkas dari server">Hapus</button>
-              </form>
-            </div>
+            <span class="dataset-badge {% if d.preprocessed or d.has_labels %}badge-done{% else %}badge-idle{% endif %}" data-dataset-state>
+              {% if d.preprocessed or d.has_labels %}Data siap{% else %}Belum diproses{% endif %}
+            </span>
+            {% if d.is_active %}
+            <span class="dataset-badge badge-active">Sedang aktif</span>
+            {% else %}
+            <form method="post" action="{{ url_for('dataset.activate', filename=d.name) }}">
+              <button class="btn-action-active" type="submit" {% if state.status in ['berjalan', 'menunggu'] %}disabled{% endif %}>Pilih untuk uji coba</button>
+            </form>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -95,16 +79,15 @@
     </table>
   </div>
   {% else %}
-  <div class="flash flash-info">Belum ada dataset yang tersimpan di repositori, silakan pilih dan unggah berkas CSV di atas</div>
+  <div class="flash flash-error">Dataset final tidak ditemukan. Silakan hubungi pengelola aplikasi.</div>
   {% endif %}
 </section>
 
 <!-- 3. PIPELINE PEMROSESAN DATASET AKTIF -->
 <div class="section-heading section-heading-spaced">
   <div>
-    <p class="eyebrow">Alur Metode untuk Dataset Aktif</p>
-    <h2>Pemrosesan: <span id="active-dataset-display">{{ state.dataset_name or 'Belum Ada Dataset Aktif' }}</span></h2>
-    <p class="muted">Eksekusi alur secara berurutan tanpa kehilangan file asli</p>
+    <p class="eyebrow">Langkah 3</p>
+    <h2>Persiapan analisis: <span id="active-dataset-display">{{ state.dataset_name or 'Dataset belum tersedia' }}</span></h2>
   </div>
 </div>
 
@@ -115,17 +98,17 @@
       <span class="step-no">2</span>
       <div>
         <p class="eyebrow">Langkah 02</p>
-        <h2>Preprocessing & Pelabelan</h2>
-        <p>Potong boilerplate Google Maps, pecah sub-kalimat, deteksi aspek & sentimen lexicon, 6 tahap normalisasi teks, lalu simpan ke database</p>
+        <h2>Penyiapan teks dan label</h2>
+        <p>Sistem merapikan teks ulasan dan memisahkannya berdasarkan bagian kalimat. Setelah itu, sistem mencatat topik yang dibahas (misalnya makanan atau suasana) dan apakah pelanggan memuji atau mengeluh.</p>
       </div>
     </div>
     <div class="step-state" id="preprocess-state">
-      {% if state.preprocessed %}Selesai (Siap Klasifikasi){% elif state.dataset_name %}Siap Dijalankan{% else %}Menunggu Dataset Aktif{% endif %}
+      {% if state.preprocessed %}Selesai — data siap diklasifikasikan{% elif state.dataset_name %}Siap dijalankan{% else %}Menunggu dataset aktif{% endif %}
     </div>
     <form method="post" action="{{ url_for('dataset.preprocessing') }}">
       <input type="hidden" name="filename" id="form-preprocess-filename" value="{{ state.dataset_name or '' }}">
-      <button id="preprocess-button" class="btn-action-active" {% if not state.dataset_name or state.status in ['berjalan','menunggu'] %}disabled{% endif %}>
-        {% if state.preprocessed %}Preprocessing Ulang{% else %}Mulai Preprocessing{% endif %}
+      <button id="preprocess-button" class="btn-action-active" {% if not state.dataset_name or state.preprocessed or state.status in ['berjalan','menunggu'] %}disabled{% endif %}>
+        {% if state.preprocessed %}Data sudah siap{% else %}Mulai menyiapkan data{% endif %}
       </button>
     </form>
   </article>
@@ -138,12 +121,12 @@
       <span class="step-no">3</span>
       <div>
         <p class="eyebrow">Langkah 03</p>
-        <h2>Klasifikasi MNB Manual</h2>
-        <p>Group Shuffle Split anti-leakage (80:20), TF-IDF manual, Random Oversampling data latih, Multinomial Naive Bayes Laplace (&alpha;=1.0), dan evaluasi metrik</p>
+        <h2>Belajar mengenali pujian dan keluhan</h2>
+        <p>Sebagian ulasan dipakai untuk belajar dan sebagian lainnya untuk menguji hasil. Sistem mengenali pola kata pada ulasan, lalu hasilnya dibandingkan dengan label pemeriksa untuk mengukur ketepatannya.</p>
       </div>
     </div>
     <div class="step-state" id="classify-state">
-      {% if state.classified %}Selesai (Metrik Tersedia){% elif state.preprocessed %}Siap Dijalankan{% else %}Terkunci — Selesaikan Preprocessing{% endif %}
+      {% if state.classified %}Selesai — metrik evaluasi tersedia{% elif state.preprocessed %}Siap dijalankan{% else %}Menunggu preprocessing selesai{% endif %}
     </div>
     <form method="post" action="{{ url_for('dataset.classification') }}">
       <button id="classify-button" class="btn-action-active" {% if not state.preprocessed or state.status in ['berjalan','menunggu'] %}disabled{% endif %}>
@@ -157,13 +140,13 @@
 <section class="method-edu-section">
   <div class="method-edu-header">
     <div>
-      <p class="eyebrow">Transparansi Metode Penelitian</p>
-      <h2>Struktur & Tahapan Komputasi Teks</h2>
-      <p class="muted">Pelajari alur algoritma from-scratch yang diterapkan pada ulasan kafe</p>
+      <p class="eyebrow">Penjelasan lebih lanjut</p>
+      <h2>Bagaimana teks diolah?</h2>
+      <p class="muted">Ulasan dirapikan terlebih dahulu, lalu sistem mempelajari contoh pujian dan keluhan. Istilah teknis dijelaskan bersama artinya.</p>
     </div>
     <div class="method-nav-tabs">
-      <button type="button" class="method-tab-btn is-active" id="tab-btn-prep" onclick="switchMethodTab('prep')">6 Tahap Preprocessing Teks</button>
-      <button type="button" class="method-tab-btn" id="tab-btn-class" onclick="switchMethodTab('class')">5 Tahap Klasifikasi MNB</button>
+      <button type="button" class="method-tab-btn is-active" id="tab-btn-prep" onclick="switchMethodTab('prep')">6 langkah merapikan ulasan</button>
+      <button type="button" class="method-tab-btn" id="tab-btn-class" onclick="switchMethodTab('class')">Cara sistem belajar</button>
     </div>
   </div>
 
@@ -175,8 +158,8 @@
           <span class="stage-num-badge">1</span>
           <span class="dataset-badge badge-idle">Cleaning</span>
         </div>
-        <h3>1. Text Cleaning</h3>
-        <p>Membersihkan tautan web (http/www), mention (@user), tagar (#viral), emoji unicode, angka, serta seluruh simbol tanda baca non-alfabet</p>
+        <h3>1. Menghapus bagian yang tidak diperlukan</h3>
+        <p>Membersihkan tautan web, nama akun, tagar, emoji, angka, dan tanda baca agar teks lebih mudah diolah.</p>
         <div class="stage-example">
           <strong>Contoh:</strong> <code>"kopinya enak bgt! @cafe ☕"</code> &rarr; <code>"kopinya enak bgt cafe"</code>
         </div>
@@ -187,8 +170,8 @@
           <span class="stage-num-badge">2</span>
           <span class="dataset-badge badge-idle">Case Folding</span>
         </div>
-        <h3>2. Case Folding</h3>
-        <p>Mengubah seluruh huruf dalam kalimat menjadi huruf kecil (lowercase) agar kata seperti "Kopi" dan "kopi" dianggap identik</p>
+        <h3>2. Menyamakan huruf besar dan kecil</h3>
+        <p>Semua huruf dibuat kecil, sehingga “Kopi” dan “kopi” dianggap sebagai kata yang sama.</p>
         <div class="stage-example">
           <strong>Contoh:</strong> <code>"Kopi Enak Cafe"</code> &rarr; <code>"kopi enak cafe"</code>
         </div>
@@ -199,8 +182,8 @@
           <span class="stage-num-badge">3</span>
           <span class="dataset-badge badge-idle">Tokenizing</span>
         </div>
-        <h3>3. Tokenizing</h3>
-        <p>Memecah teks kalimat menjadi urutan token kata individual berdasarkan pemisah spasi tunggal</p>
+        <h3>3. Memisahkan kalimat menjadi kata</h3>
+        <p>Kalimat dipecah menjadi kata-kata agar tiap kata dapat diperiksa satu per satu.</p>
         <div class="stage-example">
           <strong>Contoh:</strong> <code>["kopi", "enak", "banget", "cafe"]</code>
         </div>
@@ -211,8 +194,8 @@
           <span class="stage-num-badge">4</span>
           <span class="dataset-badge badge-idle">Normalisasi</span>
         </div>
-        <h3>4. Normalisasi Slang</h3>
-        <p>Mengubah bahasa gaul, singkatan chatting, dan kata tidak baku ke bentuk formal baku bahasa Indonesia (misal: "gk" &rarr; "tidak", "bgt" &rarr; "sangat", "yg" &rarr; "yang")</p>
+        <h3>4. Membakukan kata tidak baku</h3>
+        <p>Singkatan dan bahasa sehari-hari diubah ke bentuk yang lebih umum, misalnya “gk” menjadi “tidak” dan “bgt” menjadi “sangat”.</p>
         <div class="stage-example">
           <strong>Contoh:</strong> <code>"bgt"</code> &rarr; <code>"sangat"</code>, <code>"gk"</code> &rarr; <code>"tidak"</code>
         </div>
@@ -223,8 +206,8 @@
           <span class="stage-num-badge">5</span>
           <span class="dataset-badge badge-idle">Stopword</span>
         </div>
-        <h3>5. Stopword Removal</h3>
-        <p>Menghapus kata-kata sambung umum yang tidak membawa bobot sentimen via kamus Sastrawi. Kata negasi ("tidak", "bukan", "belum") <strong>tetap dipertahankan</strong> agar konteks sentimen tidak hilang</p>
+        <h3>5. Menghapus kata umum yang kurang membantu</h3>
+        <p>Beberapa kata umum dihilangkan agar perhatian tertuju pada isi ulasan. Kata seperti “tidak”, “bukan”, dan “belum” <strong>tetap disimpan</strong> karena dapat mengubah arti kalimat.</p>
         <div class="stage-example">
           <strong>Contoh:</strong> kata <code>"yang"</code> dibuang, kata <code>"tidak"</code> dipertahankan
         </div>
@@ -274,12 +257,12 @@
       <div class="stage-card">
         <div class="stage-card-top">
           <span class="stage-num-badge">3</span>
-          <span class="dataset-badge badge-idle">Oversampling</span>
+          <span class="dataset-badge badge-idle">Konfigurasi final</span>
         </div>
-        <h3>3. Random Oversampling (ROS)</h3>
-        <p>Diterapkan <strong>khusus pada data training</strong> untuk menyeimbangkan kelas minoritas ('negatif' dan 'netral') agar sama jumlahnya dengan mayoritas ('positif') dengan seed acak tetap (random_state=42)</p>
+        <h3>3. Data latih tanpa oversampling</h3>
+        <p>Model final dilatih menggunakan distribusi label asli. Random Oversampling tersedia untuk eksperimen, tetapi tidak digunakan pada konfigurasi yang dievaluasi.</p>
         <div class="stage-example">
-          <strong>Target:</strong> <code>count(neg) = count(net) = count(pos)</code>
+          <strong>Tujuan:</strong> <code>menjaga konfigurasi sesuai notebook</code>
         </div>
       </div>
 
@@ -289,7 +272,7 @@
           <span class="dataset-badge badge-idle">Naive Bayes</span>
         </div>
         <h3>4. Multinomial Naive Bayes Manual</h3>
-        <p>Klasifikasi probabilistik dengan Log Prior <code>ln(N_c / N)</code> dan Log Likelihood Laplace smoothing &alpha;=1.0: <code>ln((count(w,c) + &alpha;) / (&sum;count + &alpha;|V|))</code> tanpa library scikit-learn</p>
+        <p>Klasifikasi probabilistik dengan Log Prior <code>ln(N_c / N)</code> dan Laplace smoothing &alpha;=0.1, menggunakan fitur unigram-bigram.</p>
         <div class="stage-example">
           <strong>Prediksi:</strong> <code>argmax [ log P(c) + &sum; tfidf &times; log P(w|c) ]</code>
         </div>
@@ -336,6 +319,7 @@
       <strong id="checkpoint-title">{{ state.checkpoint_title or 'Belum berjalan' }}</strong>
       <span id="checkpoint-action">{{ state.checkpoint_action or 'Mulai preprocessing untuk melihat detail' }}</span>
       <span id="checkpoint-result">{{ state.checkpoint_result or '' }}</span>
+      <span id="preprocessing-duration">Durasi: {% if state.preprocessing_seconds is not none %}{{ state.preprocessing_seconds }} dtk{% else %}—{% endif %}</span>
     </div>
   </section>
 
@@ -363,6 +347,7 @@
       <strong id="class-checkpoint-title">{{ state.class_checkpoint_title or 'Belum berjalan' }}</strong>
       <span id="class-checkpoint-action">{{ state.class_checkpoint_action or 'Jalankan klasifikasi untuk melihat detail' }}</span>
       <span id="class-checkpoint-result">{{ state.class_checkpoint_result or '' }}</span>
+      <span id="classification-duration">Durasi: {% if state.classification_seconds is not none %}{{ state.classification_seconds }} dtk{% else %}—{% endif %}</span>
     </div>
   </section>
 </div>
@@ -437,6 +422,8 @@ function updateCheckpoints(s) {
   document.getElementById('checkpoint-title').textContent = s.checkpoint_title || (current === 6 ? 'Preprocessing selesai' : 'Belum berjalan');
   document.getElementById('checkpoint-action').textContent = s.checkpoint_action || (current === 6 ? 'Semua ulasan telah diproses' : 'Mulai preprocessing untuk melihat detail');
   document.getElementById('checkpoint-result').textContent = s.checkpoint_result || '';
+  document.getElementById('preprocessing-duration').textContent =
+    'Durasi: ' + (s.preprocessing_seconds == null ? '—' : elapsed(s.preprocessing_seconds));
 
   // Classification checkpoints (1..5)
   const classCurrent = Number(s.class_checkpoint || 0);
@@ -453,6 +440,8 @@ function updateCheckpoints(s) {
   document.getElementById('class-checkpoint-title').textContent = s.class_checkpoint_title || (classCurrent === 5 ? 'Klasifikasi selesai' : 'Belum berjalan');
   document.getElementById('class-checkpoint-action').textContent = s.class_checkpoint_action || (classCurrent === 5 ? 'Model selesai dilatih dan dievaluasi' : 'Jalankan klasifikasi untuk melihat detail');
   document.getElementById('class-checkpoint-result').textContent = s.class_checkpoint_result || '';
+  document.getElementById('classification-duration').textContent =
+    'Durasi: ' + (s.classification_seconds == null ? '—' : elapsed(s.classification_seconds));
 }
 
 function updateTableBadges(datasets, activeDatasetName) {
@@ -460,77 +449,13 @@ function updateTableBadges(datasets, activeDatasetName) {
   datasets.forEach(function(d) {
     const row = document.querySelector(`tr[data-dataset-name="${d.name}"]`);
     if (row) {
-      const cell = row.querySelector('.pipeline-status-cell');
-      if (cell) {
-        if (d.has_labels || (d.name === activeDatasetName && d.preprocessed)) {
-          cell.innerHTML = '<span class="dataset-badge badge-done">Preprocessed</span>';
-        } else {
-          cell.innerHTML = '<span class="dataset-badge badge-idle">Belum Preprocessed</span>';
-        }
+      const stateBadge = row.querySelector('[data-dataset-state]');
+      if (stateBadge) {
+        const ready = d.has_labels || (d.name === activeDatasetName && d.preprocessed);
+        stateBadge.className = 'dataset-badge ' + (ready ? 'badge-done' : 'badge-idle');
+        stateBadge.textContent = ready ? 'Data siap' : 'Belum diproses';
       }
     }
-  });
-}
-
-// Live Feedback Saat File Dipilih (Sebelum Ditekan Unggah)
-const fileInput = document.getElementById('dataset');
-const filePickerLabel = document.getElementById('file-picker-label');
-const filePickerIcon = document.getElementById('file-picker-icon');
-const filePickerTitle = document.getElementById('file-picker-title');
-const filePickerDesc = document.getElementById('file-picker-desc');
-const uploadSubmitBtn = document.getElementById('upload-submit-btn');
-
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-if (fileInput && filePickerLabel) {
-  fileInput.addEventListener('change', function(e) {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      filePickerLabel.classList.add('has-file');
-      if (filePickerIcon) filePickerIcon.textContent = '✓';
-      if (files.length === 1) {
-        const file = files[0];
-        if (filePickerTitle) filePickerTitle.textContent = file.name;
-        if (filePickerDesc) filePickerDesc.textContent = 'Ukuran: ' + formatBytes(file.size) + ' — Berkas siap diunggah, klik tombol "Unggah ke Repositori" untuk menyimpan';
-        if (uploadSubmitBtn) uploadSubmitBtn.textContent = 'Unggah ' + file.name;
-      } else {
-        let totalSize = 0;
-        for (let i = 0; i < files.length; i++) totalSize += files[i].size;
-        if (filePickerTitle) filePickerTitle.textContent = files.length + ' Berkas CSV Dipilih';
-        if (filePickerDesc) filePickerDesc.textContent = 'Total ukuran: ' + formatBytes(totalSize) + ' — Berkas siap diunggah, klik tombol "Unggah ke Repositori" untuk menyimpan';
-        if (uploadSubmitBtn) uploadSubmitBtn.textContent = 'Unggah ' + files.length + ' Berkas';
-      }
-    } else {
-      filePickerLabel.classList.remove('has-file');
-      if (filePickerIcon) filePickerIcon.textContent = '＋';
-      if (filePickerTitle) filePickerTitle.textContent = 'Pilih Berkas CSV Ulasan';
-      if (filePickerDesc) filePickerDesc.textContent = 'Format .csv · Mendukung pilih beberapa file sekaligus · Kolom: placeId, nama_kafe, teks_ulasan, rating_ulasan';
-      if (uploadSubmitBtn) uploadSubmitBtn.textContent = 'Unggah ke Repositori';
-    }
-  });
-
-  ['dragenter', 'dragover'].forEach(function(evt) {
-    filePickerLabel.addEventListener(evt, function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      filePickerLabel.classList.add('has-file');
-    });
-  });
-
-  ['dragleave', 'drop'].forEach(function(evt) {
-    filePickerLabel.addEventListener(evt, function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!fileInput.files || fileInput.files.length === 0) {
-        filePickerLabel.classList.remove('has-file');
-      }
-    });
   });
 }
 
@@ -573,8 +498,8 @@ async function refresh() {
     const prepBtn = document.getElementById('preprocess-button');
     const classBtn = document.getElementById('classify-button');
     if (prepBtn) {
-      prepBtn.disabled = busy || !activeDs;
-      prepBtn.textContent = isPreprocessed ? 'Preprocessing Ulang' : 'Mulai Preprocessing';
+      prepBtn.disabled = true;
+      prepBtn.textContent = 'Data sudah siap';
     }
     if (classBtn) {
       classBtn.disabled = busy || !isPreprocessed;

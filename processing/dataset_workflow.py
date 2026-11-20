@@ -16,59 +16,92 @@ Aturan penting:
 from __future__ import annotations
 import datetime
 import json
+import os
+import pickle
 import shutil
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from sqlalchemy import text
+from werkzeug.utils import secure_filename
 
 from db import engine
 from processing.classification import fit_evaluate_manual
 from processing.preprocessing import preprocess_and_label, REQUIRED_RAW
+from processing.text_processing import (
+    TextPreprocessor, deteksi_aspek, pecah_subkalimat, potong_template,
+)
 from processing.workflow_state import (
     progress_callback, read_state, reset_state, write_state
 )
 
 BASE = Path(__file__).resolve().parents[1]
-UPLOAD = BASE / 'uploads_tmp'
-UPLOAD.mkdir(exist_ok=True)
+IS_SERVERLESS = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+
+if IS_SERVERLESS or not os.access(BASE, os.W_OK):
+    import tempfile
+    UPLOAD = Path(tempfile.gettempdir()) / 'nafinder_uploads'
+else:
+    UPLOAD = BASE / 'uploads_tmp'
+
+try:
+    UPLOAD.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 DATASETS_DIR = UPLOAD / 'datasets'
-DATASETS_DIR.mkdir(exist_ok=True)
+try:
+    DATASETS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 REGISTRY_FILE = UPLOAD / '.datasets_registry.json'
 CACHE = UPLOAD / '.labels_cache.pkl'
 SOURCE = UPLOAD / '.dataset_source.csv'
 
+# Path model dan vectorizer pre-trained
+ASSETS_DIR = Path(__file__).resolve().parent / 'assets'
+SAVED_MODEL_FILE = ASSETS_DIR / 'model_mnb.pkl'
+SAVED_VEC_FILE = ASSETS_DIR / 'vectorizer.pkl'
+
+_RUNTIME_MODEL = None
+_RUNTIME_VECTORIZER = None
+
 
 def _migrate_datasets_once():
     """Pindahkan berkas CSV lama dari uploads_tmp langsung ke uploads_tmp/datasets/ jika belum ada."""
-    for name in ('ulasan_wfc_final.csv', 'ulasan_wfc_testing_5000.csv'):
-        src = UPLOAD / name
-        dst = DATASETS_DIR / name
-        if src.is_file():
-            if not dst.exists():
-                shutil.move(str(src), str(dst))
-            else:
-                src.unlink(missing_ok=True)
+    try:
+        for name in ('dataset_semprog.csv',):
+            src = UPLOAD / name
+            dst = DATASETS_DIR / name
+            if src.is_file():
+                if not dst.exists():
+                    shutil.move(str(src), str(dst))
+                else:
+                    src.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 _migrate_datasets_once()
 
 
-
 def _read_registry() -> dict[str, Any]:
-    if not REGISTRY_FILE.exists():
-        return {}
-    try:
-        return json.loads(REGISTRY_FILE.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return {}
+    for p in (REGISTRY_FILE, BASE / 'uploads_tmp' / '.datasets_registry.json'):
+        if p.is_file():
+            try:
+                return json.loads(p.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                pass
+    return {}
 
 
 def _write_registry(data: dict[str, Any]):
-    REGISTRY_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+    try:
+        REGISTRY_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+    except OSError:
+        pass
 
 
 def _format_size(size_bytes: int) -> str:
@@ -90,6 +123,8 @@ def get_dataset_path(filename: str | None = None) -> Path | None:
     candidates = [
         DATASETS_DIR / fname,
         UPLOAD / fname,
+        BASE / 'uploads_tmp' / 'datasets' / fname,
+        BASE / 'uploads_tmp' / fname,
         SOURCE if fname == '.dataset_source.csv' else None
     ]
     for c in candidates:
@@ -194,28 +229,39 @@ def save_dataset(source, original_name: str | None = None, set_active: bool = Tr
         original_name: Nama asli file yang diunggah.
         set_active: Jika True, langsung jadikan dataset ini sebagai dataset aktif.
     """
-    clean_name = Path(original_name or 'dataset.csv').name
-    clean_name = clean_name.replace(' ', '_')
-    if not clean_name.lower().endswith('.csv'):
-        clean_name += '.csv'
+    clean_name = secure_filename(Path(original_name or 'dataset.csv').name)
+    if not clean_name or not clean_name.lower().endswith('.csv'):
+        raise ValueError('Berkas yang diunggah harus berupa file CSV.')
 
     target = DATASETS_DIR / clean_name
+    if target.exists():
+        raise ValueError(f"Dataset '{clean_name}' sudah ada. Gunakan nama file lain.")
 
-    if isinstance(source, (str, Path)):
-        shutil.copy2(source, target)
-    else:
-        source.save(target)
-
-    # Validasi awal apakah file valid CSV
     try:
-        sample = pd.read_csv(target, nrows=5, encoding='utf-8-sig')
+        if isinstance(source, (str, Path)):
+            shutil.copy2(source, target)
+        else:
+            source.save(target)
+    except OSError:
+        target.unlink(missing_ok=True)
+        raise
+
+    try:
+        sample = pd.read_csv(target, nrows=1, encoding='utf-8-sig')
+        if sample.empty:
+            raise ValueError('CSV harus memiliki setidaknya satu baris data.')
         missing = REQUIRED_RAW - set(sample.columns)
         if missing:
-            # Tetap simpan tapi catat warning
-            pass
-    except Exception as e:
+            raise ValueError(
+                f"Kolom CSV tidak lengkap: {', '.join(sorted(missing))}"
+            )
+    except (pd.errors.EmptyDataError, pd.errors.ParserError,
+            UnicodeDecodeError, OSError) as e:
         target.unlink(missing_ok=True)
         raise ValueError(f"Berkas bukan CSV yang valid atau rusak: {e}")
+    except ValueError:
+        target.unlink(missing_ok=True)
+        raise
 
     # Catat ke registry
     reg = _read_registry()
@@ -246,6 +292,145 @@ def save_dataset(source, original_name: str | None = None, set_active: bool = Tr
     return target
 
 
+def _get_cafe_upsert_sql():
+    """Query upsert kafe master kompatibel PostgreSQL dan MySQL."""
+    if engine.dialect.name == 'postgresql':
+        return text("""
+            INSERT INTO kafe(place_id,nama,alamat,rating_gmaps,jumlah_ulasan,buka_24jam,wifi,stopkontak,meja_kerja)
+            VALUES(:place,:name,:address,:rating,:count,:hours,:wifi,:outlet,:desk)
+            ON CONFLICT (place_id) DO UPDATE SET
+              nama=EXCLUDED.nama, alamat=EXCLUDED.alamat,
+              rating_gmaps=EXCLUDED.rating_gmaps, jumlah_ulasan=EXCLUDED.jumlah_ulasan,
+              buka_24jam=EXCLUDED.buka_24jam, wifi=EXCLUDED.wifi,
+              stopkontak=EXCLUDED.stopkontak, meja_kerja=EXCLUDED.meja_kerja
+        """)
+    return text("""
+            INSERT INTO kafe(place_id,nama,alamat,rating_gmaps,jumlah_ulasan,buka_24jam,wifi,stopkontak,meja_kerja)
+            VALUES(:place,:name,:address,:rating,:count,:hours,:wifi,:outlet,:desk)
+            ON DUPLICATE KEY UPDATE
+              nama=VALUES(nama), alamat=VALUES(alamat),
+              rating_gmaps=VALUES(rating_gmaps), jumlah_ulasan=VALUES(jumlah_ulasan),
+              buka_24jam=VALUES(buka_24jam), wifi=VALUES(wifi),
+              stopkontak=VALUES(stopkontak), meja_kerja=VALUES(meja_kerja)
+        """)
+
+
+def _get_skor_aspek_sql(include_netral: bool = True):
+    """Query agregasi skor aspek per kafe kompatibel ANSI SQL (PostgreSQL & MySQL)."""
+    netral_expr = "SUM(CASE WHEN sentimen='netral' THEN 1 ELSE 0 END)" if include_netral else "0"
+    return text(f"""
+            INSERT INTO skor_aspek(kafe_id,aspek,jumlah_positif,jumlah_netral,jumlah_negatif,
+                                   persen_positif,persen_negatif,label_kekuatan,label_kelemahan)
+            SELECT kafe_id, aspek,
+              SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END),
+              {netral_expr},
+              SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END),
+              ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2),
+              ROUND(100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*), 2),
+              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*)) >= 60 THEN TRUE ELSE FALSE END,
+              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*)) >= 30 THEN TRUE ELSE FALSE END
+            FROM label_sentimen GROUP BY kafe_id, aspek
+        """)
+
+
+def _store_preprocessed_labels(labels: pd.DataFrame) -> tuple[int, int, int]:
+    """Simpan CSV hasil preprocessing langsung ke database."""
+    df = labels.copy()
+    required = {'review_id', 'placeId', 'nama_kafe', 'sub_kalimat',
+                'aspek', 'sentimen', 'teks_preprocessed'}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"Kolom CSV hasil preprocessing tidak lengkap: {', '.join(sorted(missing))}"
+        )
+
+    df['sentimen'] = df['sentimen'].astype(str).str.lower().str.strip()
+    df = df[df['sentimen'].isin(['positif', 'negatif'])].copy()
+    if df.empty:
+        raise ValueError('Tidak ada label positif atau negatif pada CSV hasil preprocessing.')
+
+    cafe_rows = []
+    for place_id, group in df.groupby('placeId', sort=False):
+        first = group.iloc[0]
+        blob = ' '.join(
+            group['asal_sub_kalimat'].fillna('').astype(str).tolist()
+            if 'asal_sub_kalimat' in group.columns
+            else group['sub_kalimat'].fillna('').astype(str).tolist()
+        ).lower()
+        address = str(first.get('kafe_id', '')).split('|', 1)[-1].strip()[:255]
+        rates = pd.to_numeric(group['rating_ulasan'], errors='coerce').dropna() \
+            if 'rating_ulasan' in group.columns else pd.Series(dtype='float64')
+        cafe_rows.append({
+            'place': str(place_id),
+            'name': str(first.get('nama_kafe', 'Kafe'))[:160],
+            'address': address,
+            'rating': round(float(rates.mean()), 1) if len(rates) else None,
+            'count': int(group['review_id'].nunique()),
+            'hours': int('24 jam' in blob or '24jam' in blob),
+            'wifi': int('wifi' in blob or 'wi-fi' in blob or 'internet' in blob),
+            'outlet': int(any(q in blob for q in ('colokan', 'stopkontak', 'charger'))),
+            'desk': int(any(q in blob for q in ('meja', 'kursi', 'nugas', 'laptop', 'wfc', 'kerja'))),
+        })
+
+    with engine.begin() as conn:
+        conn.execute(_get_cafe_upsert_sql(), cafe_rows)
+
+        ids = {p: int(i) for p, i in conn.execute(text('SELECT place_id, id FROM kafe')).fetchall()}
+        conn.execute(text('DELETE FROM label_sentimen'))
+        conn.execute(text('DELETE FROM skor_aspek'))
+        conn.execute(text('DELETE FROM ulasan'))
+
+        review_rows = []
+        for _, r in df.drop_duplicates(['placeId', 'review_id']).iterrows():
+            source_text = str(r.get('asal_sub_kalimat', r['sub_kalimat']))
+            rating = pd.to_numeric(pd.Series([r.get('rating_ulasan')]), errors='coerce').iloc[0]
+            rating_value = None
+            if pd.notna(rating):
+                rating_value = max(1, min(5, int(round(float(rating)))))
+            review_rows.append({
+                'kid': ids[str(r.placeId)],
+                'rid': int(r.review_id),
+                'text': source_text[:60000],
+                'rating': rating_value,
+            })
+
+        ins_review = text(
+            'INSERT INTO ulasan(kafe_id,review_id,teks,rating,tanggal,teks_preprocessed,valid) '
+            'VALUES(:kid,:rid,:text,:rating,NULL,:text,1)'
+        )
+        for i in range(0, len(review_rows), 2000):
+            conn.execute(ins_review, review_rows[i:i + 2000])
+
+        uid = {
+            (int(k), int(r)): int(i)
+            for i, k, r in conn.execute(text('SELECT id,kafe_id,review_id FROM ulasan')).fetchall()
+        }
+
+        label_rows = []
+        for _, r in df.iterrows():
+            key = (ids.get(str(r.placeId)), int(r.review_id))
+            ulasan_id = uid.get(key)
+            if ulasan_id:
+                label_rows.append({
+                    'uid': ulasan_id,
+                    'kid': key[0],
+                    'sub': str(r.sub_kalimat)[:512],
+                    'aspect': r.aspek,
+                    'sent': r.sentimen,
+                })
+
+        ins_label = text(
+            'INSERT INTO label_sentimen(ulasan_id,kafe_id,sub_kalimat,aspek,sentimen) '
+            'VALUES(:uid,:kid,:sub,:aspect,:sent)'
+        )
+        for i in range(0, len(label_rows), 3000):
+            conn.execute(ins_label, label_rows[i:i + 3000])
+
+        conn.execute(_get_skor_aspek_sql(include_netral=False))
+
+    return len(review_rows), len(label_rows), len(cafe_rows)
+
+
 def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tuple[int, int, int]:
     """Simpan label preprocessing ke MySQL: kafe, ulasan, label_sentimen, skor_aspek."""
     df_raw = raw.copy()
@@ -274,15 +459,7 @@ def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tupl
 
     with engine.begin() as conn:
         # Upsert kafe master
-        conn.execute(text("""
-            INSERT INTO kafe(place_id,nama,alamat,rating_gmaps,jumlah_ulasan,buka_24jam,wifi,stopkontak,meja_kerja)
-            VALUES(:place,:name,:address,:rating,:count,:hours,:wifi,:outlet,:desk)
-            ON DUPLICATE KEY UPDATE
-              nama=VALUES(nama), alamat=VALUES(alamat),
-              rating_gmaps=VALUES(rating_gmaps), jumlah_ulasan=VALUES(jumlah_ulasan),
-              buka_24jam=VALUES(buka_24jam), wifi=VALUES(wifi),
-              stopkontak=VALUES(stopkontak), meja_kerja=VALUES(meja_kerja)
-        """), cafes)
+        conn.execute(_get_cafe_upsert_sql(), cafes)
 
         ids = {p: int(i) for p, i in conn.execute(text('SELECT place_id, id FROM kafe')).fetchall()}
 
@@ -336,23 +513,16 @@ def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tupl
             conn.execute(inslabel, lr[i:i + 3000])
 
         # Hitung agregasi skor_aspek per kafe
-        conn.execute(text("""
-            INSERT INTO skor_aspek(kafe_id,aspek,jumlah_positif,jumlah_netral,jumlah_negatif,
-                                   persen_positif,persen_negatif,label_kekuatan,label_kelemahan)
-            SELECT kafe_id, aspek,
-              SUM(sentimen='positif'), SUM(sentimen='netral'), SUM(sentimen='negatif'),
-              ROUND(100.0*SUM(sentimen='positif')/COUNT(*),2),
-              ROUND(100.0*SUM(sentimen='negatif')/COUNT(*),2),
-              100.0*SUM(sentimen='positif')/COUNT(*) >= 60,
-              100.0*SUM(sentimen='negatif')/COUNT(*) >= 30
-            FROM label_sentimen GROUP BY kafe_id, aspek
-        """))
+        conn.execute(_get_skor_aspek_sql(include_netral=True))
 
     return len(review), len(lr), len(cafes)
 
 
 def run_preprocessing(filename: str | None = None, user_id=None) -> dict:
     """Jalankan preprocessing dan pelabelan, simpan hasilnya ke DB dan cache."""
+    global _RUNTIME_MODEL, _RUNTIME_VECTORIZER
+    _RUNTIME_MODEL = None
+    _RUNTIME_VECTORIZER = None
     csv_path = get_dataset_path(filename)
     if not csv_path or not csv_path.is_file():
         raise FileNotFoundError("Berkas dataset tidak ditemukan. Pilih atau unggah dataset terlebih dahulu.")
@@ -369,6 +539,51 @@ def run_preprocessing(filename: str | None = None, user_id=None) -> dict:
     )
 
     raw = pd.read_csv(csv_path, encoding='utf-8-sig')
+    preprocessed_columns = {'review_id', 'placeId', 'nama_kafe', 'sub_kalimat',
+                            'aspek', 'sentimen', 'teks_preprocessed'}
+    if preprocessed_columns.issubset(set(raw.columns)):
+        labels = raw.copy()
+        labels['sentimen'] = labels['sentimen'].astype(str).str.lower().str.strip()
+        labels = labels[labels['sentimen'].isin(['positif', 'negatif'])].copy()
+        if labels.empty:
+            raise ValueError('Tidak ada label positif atau negatif pada CSV hasil preprocessing.')
+
+        write_state(
+            checkpoint=1,
+            checkpoint_title='Dataset sudah dipreprocessing',
+            checkpoint_action='Memvalidasi kolom dan memuat label hasil anotasi',
+            checkpoint_result=f'{len(labels):,} label positif/negatif ditemukan',
+            message=f'Dataset {active_name} sudah dipreprocessing; melewati tahapan preprocessing ulang',
+        )
+
+        dataset_cache = UPLOAD / f'.labels_{active_name}.pkl'
+        labels.to_pickle(dataset_cache)
+        labels.to_pickle(CACHE)
+
+        counts = _store_preprocessed_labels(labels)
+        reg = _read_registry()
+        if active_name in reg:
+            reg[active_name]['preprocessed'] = True
+            reg[active_name]['labels_count'] = len(labels)
+            _write_registry(reg)
+
+        write_state(
+            preprocessed=True,
+            classified=False,
+            percent=100,
+            checkpoint=6,
+            checkpoint_title='Preprocessing selesai',
+            checkpoint_action='CSV hasil preprocessing valid dan siap diklasifikasikan',
+            checkpoint_result=f'{counts[2]:,} kafe, {counts[0]:,} ulasan, dan {counts[1]:,} label tersimpan',
+            message=f'Dataset sudah dipreprocessing: {len(labels):,} label siap diklasifikasikan',
+        )
+        return {
+            'labels': len(labels),
+            'reviews': int(labels.review_id.nunique()),
+            'cafes': counts[2],
+            'skipped_preprocessing': True,
+        }
+
     write_state(
         checkpoint=1,
         checkpoint_title='Persiapan data',
@@ -447,6 +662,7 @@ def run_preprocessing(filename: str | None = None, user_id=None) -> dict:
 
 def run_classification(user_id=None) -> dict:
     """Jalankan TF-IDF, oversampling, MNB, dan evaluasi; simpan metrik ke DB."""
+    global _RUNTIME_MODEL, _RUNTIME_VECTORIZER
     state = read_state()
     active_name = state.get('dataset_name')
     dataset_cache = UPLOAD / f'.labels_{active_name}.pkl' if active_name else None
@@ -472,8 +688,8 @@ def run_classification(user_id=None) -> dict:
         actions = {
             1: "Membagi ulasan menjadi 80% latih dan 20% uji berbasis review_id (Group Shuffle Split anti-bocor)",
             2: "Mengekstraksi fitur teks menggunakan Sublinear TF, Smooth IDF, dan Normalisasi L2",
-            3: "Menyeimbangkan kelas sentimen minoritas (negatif & netral) pada data latih via Random Oversampling",
-            4: "Menghitung log prior dan log likelihood kata per kelas dengan Laplace smoothing (alpha=1.0)",
+            3: "Menggunakan data latih asli tanpa Random Oversampling",
+            4: "Menghitung log prior dan log likelihood kata per kelas dengan Laplace smoothing (alpha=0,1)",
             5: "Menghitung Confusion Matrix, Akurasi, Precision, Recall, Macro F1, dan Weighted F1 pada data uji"
         }
         write_state(
@@ -485,7 +701,17 @@ def run_classification(user_id=None) -> dict:
         )
         progress_callback(stage, done, total, detail)
 
-    metrics, _, _, _ = fit_evaluate_manual(labels, progress=_progress)
+    metrics, model, vectorizer, _ = fit_evaluate_manual(
+        labels,
+        test_size=0.2,
+        random_state=42,
+        alpha=0.1,
+        min_df=2,
+        ros_target_ratio=0.0,
+        progress=_progress,
+    )
+    _RUNTIME_MODEL = model
+    _RUNTIME_VECTORIZER = vectorizer
 
     cm = {
         'classes': metrics['classes'],
@@ -500,7 +726,7 @@ def run_classification(user_id=None) -> dict:
                                        f1_macro,f1_weighted,jumlah_testing,confusion_matrix)
             VALUES(:name,:acc,:p,:r,:f,:w,:n,:cm)
         """), {
-            'name': f"Multinomial Naive Bayes ({active_name or 'manual'})",
+            'name': 'Multinomial Naive Bayes',
             'acc': metrics['accuracy'],
             'p': metrics['macro']['precision'],
             'r': metrics['macro']['recall'],
@@ -546,6 +772,70 @@ def run_classification(user_id=None) -> dict:
         ),
     )
     return metrics
+
+
+def predict_review(text: str) -> list[dict[str, str]]:
+    """Prediksi aspek dan sentimen untuk ulasan baru memakai model aktif."""
+    global _RUNTIME_MODEL, _RUNTIME_VECTORIZER
+    if _RUNTIME_MODEL is None or _RUNTIME_VECTORIZER is None:
+        # 1. Coba muat model & vectorizer yang telah di-bundle untuk produksi
+        if SAVED_MODEL_FILE.is_file() and SAVED_VEC_FILE.is_file():
+            try:
+                import pickle
+                with open(SAVED_MODEL_FILE, 'rb') as f:
+                    _RUNTIME_MODEL = pickle.load(f)
+                with open(SAVED_VEC_FILE, 'rb') as f:
+                    _RUNTIME_VECTORIZER = pickle.load(f)
+            except Exception:
+                _RUNTIME_MODEL = None
+                _RUNTIME_VECTORIZER = None
+
+        # 2. Fallback: latih dinamis dari dataset cache jika model bundle tidak tersedia
+        if _RUNTIME_MODEL is None or _RUNTIME_VECTORIZER is None:
+            active_name = read_state().get('dataset_name')
+            labels = None
+            candidates = [
+                UPLOAD / f'.labels_{active_name}.pkl' if active_name else None,
+                CACHE,
+                BASE / 'uploads_tmp' / f'.labels_{active_name}.pkl' if active_name else None,
+                BASE / 'uploads_tmp' / '.labels_cache.pkl',
+                BASE / 'uploads_tmp' / '.labels_dataset_Nov_preprocessed.csv.pkl'
+            ]
+            for c in candidates:
+                if c and c.is_file():
+                    try:
+                        labels = pd.read_pickle(c)
+                        break
+                    except Exception:
+                        pass
+
+            if labels is None:
+                raise RuntimeError("Data model belum tersedia. Hubungi pengelola aplikasi.")
+            _, _RUNTIME_MODEL, _RUNTIME_VECTORIZER, _ = fit_evaluate_manual(
+                labels,
+                test_size=0.2,
+                random_state=42,
+                alpha=0.1,
+                min_df=2,
+                ros_target_ratio=0.0,
+            )
+
+    cleaned = potong_template(text)
+    preprocessor = TextPreprocessor()
+    predictions: list[dict[str, str]] = []
+    for sub in pecah_subkalimat(cleaned):
+        aspects = deteksi_aspek(sub)
+        processed = preprocessor.preprocess(sub)
+        if not aspects or not processed:
+            continue
+        sentiment = str(_RUNTIME_MODEL.predict(
+            _RUNTIME_VECTORIZER.transform([processed])
+        )[0])
+        predictions.extend(
+            {"sub_kalimat": sub, "aspek": aspect, "sentimen": sentiment}
+            for aspect in aspects
+        )
+    return predictions
 
 
 def delete_dataset(filename: str | None = None) -> dict:
@@ -601,6 +891,9 @@ def delete_dataset(filename: str | None = None) -> dict:
 
 def clear_pipeline_database() -> None:
     """Hapus hasil pemrosesan di database tanpa menghapus file CSV mentah di storage."""
+    global _RUNTIME_MODEL, _RUNTIME_VECTORIZER
+    _RUNTIME_MODEL = None
+    _RUNTIME_VECTORIZER = None
     with engine.begin() as conn:
         conn.execute(text('DELETE FROM label_sentimen'))
         conn.execute(text('DELETE FROM skor_aspek'))

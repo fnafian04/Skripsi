@@ -36,12 +36,18 @@ Thumbs.db
 desktop.ini
 
 # Large dataset caches and generated pipeline artifacts
-# Mencegah penolakan push GitHub akibat berkas >100 MB
 uploads_tmp/*.csv
 uploads_tmp/*.pkl
 uploads_tmp/.*.pkl
 uploads_tmp/.*.csv
-uploads_tmp/.*.json
 uploads_tmp/datasets/*.csv
+
+# Kecualikan dataset final dan registry/state agar Vercel dapat membaca dataset awal
+!uploads_tmp/datasets/dataset_Nov_preprocessed.csv
+!uploads_tmp/.datasets_registry.json
+!uploads_tmp/.pipeline_state.json
 !uploads_tmp/.gitkeep
 !uploads_tmp/datasets/.gitkeep
+
+# Pastikan model assets tidak ter-ignore
+!processing/assets/*

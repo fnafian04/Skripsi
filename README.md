@@ -24,25 +24,24 @@ Nafinder adalah sistem analitik dan rekomendasi kafe berbasis web yang mengekstr
 
 ---
 
-## 🎯 Performa Model Baseline
+## 🎯 Performa Model Hasil Anotasi
 
 Model dievaluasi menggunakan pembagian data anti-kebocoran (**Group Shuffle Split 80:20 berbasis `review_id`**) dengan penyaringan sampel uji identik.
 
 | Metrik Evaluasi | Nilai Capaian | Keterangan |
 | :--- | :---: | :--- |
-| **Akurasi Keseluruhan** | **69.83%** | Kemampuan klasifikasi pada data uji |
-| **Macro F1-Score** | **0.5566** | Rata-rata F1 antar seluruh kelas (tidak bias kelas mayoritas) |
-| **Weighted F1-Score** | **0.7398** | Rata-rata terbobot sesuai proporsi kelas |
-| **Total Label Testing** | **37.548** | Sampel uji riil setelah penghapusan data bocor |
-| **Total Kosakata TF-IDF** | **25.761** | Fitur kata unik hasil preprocessing |
+| **Akurasi Keseluruhan** | **90.33%** | Kemampuan klasifikasi pada 331 label data uji |
+| **Macro F1-Score** | **0.9033** | Rata-rata F1 kelas negatif dan positif |
+| **Weighted F1-Score** | **0.9033** | Rata-rata terbobot sesuai proporsi kelas |
+| **Total Label Testing** | **331** | Sampel uji setelah penghapusan data bocor |
+| **Total Kosakata TF-IDF** | **1.651** | Fitur kata unigram-bigram dari data latih |
 
 ### Confusion Matrix (Baseline MNB)
-$$\begin{array}{c|ccc}
-\text{Aktual \ Prediksi} & \textbf{Negatif} & \textbf{Netral} & \textbf{Positif} \\
+$$\begin{array}{c|cc}
+\text{Aktual \ Prediksi} & \textbf{Negatif} & \textbf{Positif} \\
 \hline
-\textbf{Negatif} & 2.616 & 844 & 289 \\
-\textbf{Netral} & 1.124 & 2.089 & 706 \\
-\textbf{Positif} & 2.657 & 5.708 & 21.515 \\
+\textbf{Negatif} & 153 & 11 \\
+\textbf{Positif} & 21 & 146 \\
 \end{array}$$
 
 ---
@@ -87,19 +86,19 @@ Google Maps Reviews (CSV Mentah)
                        ▼
 ┌──────────────────────────────────────────────┐
 │  Tahap 5: Pembobotan Fitur TF-IDF Manual     │
-│  (Sublinear TF, Smooth IDF, L2 Normalization)│
+│  (Unigram-bigram, Sublinear TF, Smooth IDF)  │
 └──────────────────────┬───────────────────────┘
                        │
                        ▼
 ┌──────────────────────────────────────────────┐
-│  Tahap 6: Random Oversampling Manual (ROS)   │
-│  (Hanya pada data latih / training data)     │
+│  Tahap 6: Data latih tanpa oversampling      │
+│  (Konfigurasi model utama sesuai notebook)   │
 └──────────────────────┬───────────────────────┘
                        │
                        ▼
 ┌──────────────────────────────────────────────┐
 │  Tahap 7: Multinomial Naive Bayes Manual     │
-│  (Laplace Smoothing alpha=1.0 & MAP argmax)  │
+│  (Laplace Smoothing alpha=0.1 & MAP argmax)   │
 └──────────────────────┬───────────────────────┘
                        │
                        ▼
@@ -122,10 +121,10 @@ Semua fungsi matematika inti ditulis tanpa *black-box* library:
 2. **Internal Sparse Matrix (`processing/sparse_matrix.py`)**:
    - Struktur data *Compressed Sparse Row* (CSR) internal untuk menghemat RAM saat memproses ratusan ribu dokumen tanpa SciPy.
 3. **Random Oversampler Manual (`processing/naive_bayes.py`)**:
-   - Menyeimbangkan proporsi kelas minoritas (`negatif` dan `netral`) menyamai kelas mayoritas (`positif`) dengan *random seed* tetap (`random_state=42`) khusus data training.
+   - Eksperimen ROS dilakukan hanya pada data training; konfigurasi hasil utama memakai model tanpa ROS.
 4. **Multinomial Naive Bayes Manual (`processing/naive_bayes.py`)**:
    - **Log Prior**: $\ln P(c) = \ln(N_c / N)$
-   - **Log Likelihood (Laplace Smoothing $\alpha=1.0$)**:
+   - **Log Likelihood (Laplace Smoothing $\alpha=0.1$)**:
      $$\ln P(w \mid c) = \ln\left(\frac{\sum \text{tf}(w, c) + \alpha}{\sum_{w'} \sum \text{tf}(w', c) + \alpha \cdot |V|}\right)$$
    - **Maximum A Posteriori (MAP)**:
      $$\hat{y} = \arg\max_{c} \left[ \ln P(c) + \sum_{w \in d} \text{tf-idf}(w, d) \cdot \ln P(w \mid c) \right]$$
@@ -160,10 +159,6 @@ Program/
 │   ├── dataset.py              # Antarmuka unggah, preprocessing, dan klasifikasi
 │   ├── hasil.py                # Visualisasi hasil evaluasi model & confusion matrix
 │   ├── rekomendasi.py          # Pencarian kafe berdasarkan aspek WFC & fasilitas
-│   ├── validasi.py             # Validasi checklist manual peneliti (v1)
-│   ├── validasi_v4.py          # Audit sampel eksperimen v2
-│   ├── validasi_v5.py          # Audit sampel eksperimen v3
-│   ├── riwayat_labeling.py     # Perbandingan iterasi metode (baseline vs eksperimen)
 │   └── dokumentasi.py          # Penjelasan rumus matematika interaktif
 │
 ├── templates/                  # Templat tampilan Jinja2 (HTML5 semantik)
@@ -224,8 +219,8 @@ Aplikasi akan aktif pada: **`http://127.0.0.1:5000`**
 
 ## 📊 Eksperimen Pembanding (*Ablation Study*)
 
-Selain model baseline utama, repositori ini memuat eksperimen lanjutan di menu **Riwayat Labeling**:
-- **Baseline Model**: Klasifikasi ulasan dengan pemecah sub-kalimat koma/konjungsi (Akurasi: 69.83%, Macro F1: 0.5566).
+Selain model baseline utama, eksperimen lanjutan disimpan sebagai bahan analisis internal:
+- **Model final anotasi**: Klasifikasi biner dengan label hasil anotator, split berdasarkan `review_id` (Akurasi: 90.33%, Macro F1: 0.9033).
 - **Eksperimen Pembanding (v2 & v3)**: Eksplorasi segmentasi klausa koordinatif dan pemisahan indikator konteks pelayanan untuk analisis variasi sebaran aspek.
 
 ---

@@ -37,3 +37,10 @@ def index():
             evaluasi=evaluasi, aspek_stats=aspek_stats)
     finally:
         db.close()
+
+
+@bp.route('/bantuan')
+def bantuan():
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    return render_template('dashboard/bantuan.html')

@@ -15,8 +15,8 @@
           {% if k.buka_24jam %}<span class="tag{% if f.buka_24jam %} tag-matcha{% endif %}">24 jam</span>{% endif %}
         </div>
       </div>
-      <div class="recommendation-score"><span>Skor</span><strong>{{ '%.1f'|format(k.skor_akhir) }}</strong><small>Positif WFC {{ '%.1f'|format(k.persen_wfc) }}%</small></div>
-      <div class="recommendation-meta"><div><span>Rating Maps dari dataset</span><strong>★ {{ '%.1f'|format(k.rating_gmaps) }}</strong><small>{{ "{:,}".format(k.jumlah_ulasan) }} ulasan aktif</small></div><div><span>Keunggulan</span>
+      <div class="recommendation-score"><span>Skor urutan (0–100)</span><strong>{{ '%.1f'|format(k.skor_akhir) }}</strong><small>{{ '%.1f'|format(k.persen_wfc) }}% pendapat positif tentang fasilitas kerja/belajar</small></div>
+      <div class="recommendation-meta"><div><span>Rating di Google Maps</span><strong>★ {{ '%.1f'|format(k.rating_gmaps) }} dari 5</strong><small>{{ "{:,}".format(k.jumlah_ulasan) }} ulasan pada data penelitian</small></div><div><span>Hal yang sering dipuji</span>
         {% if k.kekuatan %}<div class="tag-row">{% for item in k.kekuatan %}<span class="tag">{{ item }}</span>{% endfor %}</div>
         {% else %}<span class="muted">Belum ada sinyal kuat</span>{% endif %}
       </div></div>
@@ -25,7 +25,7 @@
 </div>
 {% else %}
   {% if total_ulasan_tersimpan == 0 %}
-  <div class="flash flash-info">Belum ada dataset ulasan yang aktif atau diproses di database. Silakan buka menu <a href="{{ url_for('dataset.index') }}">Kelola Dataset</a> untuk memilih dan memproses dataset ulasan.</div>
+  <div class="flash flash-info">Belum ada hasil rekomendasi yang tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data penelitian</a> untuk memeriksa status sistem.</div>
   {% else %}
   <div class="flash flash-info">Tidak ada kafe yang cocok dengan kombinasi pencarian dan filter fasilitas yang dipilih</div>
   {% endif %}

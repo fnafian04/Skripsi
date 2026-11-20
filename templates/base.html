@@ -3,28 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Nafinder{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261026-sidebar-scroll') }}">
+  <title>{% block title %}Sistem Analisis Ulasan Kafe{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261118-user-flow') }}">
 </head>
 <body>
   {% if session.get('user_id') %}
   <button class="sidebar-launcher" type="button" id="sidebar-launcher" aria-label="Tutup menu" title="Tutup menu"><span aria-hidden="true">☰</span></button>
   <aside class="sidebar">
     <div class="sidebar-head">
-      <a class="brand" href="{{ url_for('dashboard.index') }}"><span class="brand-mark">N</span><span class="brand-copy">Nafinder <em>ruang kerja, rasa yang tepat</em></span></a>
+      <a class="brand" href="{{ url_for('dashboard.index') }}" aria-label="Beranda sistem">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3.5 17V7l8 10V7"/><circle cx="17" cy="14" r="4"/><path d="m20 17 2 2"/></svg>
+        </span>
+      </a>
     </div>
     <div class="sidebar-rule"></div>
     <p class="sidebar-label">Menu utama</p>
     <nav class="links" aria-label="Navigasi utama">
-      <a class="{% if request.endpoint == 'dashboard.index' %}is-active{% endif %}" href="{{ url_for('dashboard.index') }}"><span class="nav-icon" aria-hidden="true">⌂</span><span>Ringkasan</span></a>
-      <a class="{% if request.endpoint == 'dataset.index' %}is-active{% endif %}" href="{{ url_for('dataset.index') }}"><span class="nav-icon" aria-hidden="true">▣</span><span>Kelola dataset</span></a>
-      <a class="{% if request.endpoint == 'hasil.index' %}is-active{% endif %}" href="{{ url_for('hasil.index') }}"><span class="nav-icon" aria-hidden="true">◒</span><span>Hasil analisis</span></a>
-      <a class="{% if request.endpoint and request.endpoint.startswith('validasi.') %}is-active{% endif %}" href="{{ url_for('validasi.index') }}"><span class="nav-icon" aria-hidden="true">V1</span><span>Validasi labeling v1</span></a>
-      <a class="{% if request.endpoint and request.endpoint.startswith('validasi_v4.') %}is-active{% endif %}" href="{{ url_for('validasi_v4.index') }}"><span class="nav-icon" aria-hidden="true">V2</span><span>Validasi labeling v2</span></a>
-      <a class="{% if request.endpoint and request.endpoint.startswith('validasi_v5.') %}is-active{% endif %}" href="{{ url_for('validasi_v5.index') }}"><span class="nav-icon" aria-hidden="true">V3</span><span>Validasi labeling v3</span></a>
-      <a class="{% if request.endpoint and request.endpoint.startswith('riwayat_labeling.') %}is-active{% endif %}" href="{{ url_for('riwayat_labeling.index') }}"><span class="nav-icon" aria-hidden="true">↗</span><span>Riwayat labeling</span></a>
-      <a class="{% if request.endpoint == 'dokumentasi.index' %}is-active{% endif %}" href="{{ url_for('dokumentasi.index') }}"><span class="nav-icon" aria-hidden="true">∑</span><span>Dokumentasi metode</span></a>
+      <a class="{% if request.endpoint == 'dashboard.bantuan' %}is-active{% endif %}" href="{{ url_for('dashboard.bantuan') }}"><span class="nav-icon" aria-hidden="true">?</span><span>Bantuan</span></a>
       <a class="{% if request.endpoint == 'rekomendasi.index' %}is-active{% endif %}" href="{{ url_for('rekomendasi.index') }}"><span class="nav-icon" aria-hidden="true">⌖</span><span>Cari kafe</span></a>
+      <a class="{% if request.endpoint == 'dashboard.index' %}is-active{% endif %}" href="{{ url_for('dashboard.index') }}"><span class="nav-icon" aria-hidden="true">⌂</span><span>Ringkasan</span></a>
+      <a class="{% if request.endpoint == 'hasil.index' %}is-active{% endif %}" href="{{ url_for('hasil.index') }}"><span class="nav-icon" aria-hidden="true">◒</span><span>Coba analisis ulasan</span></a>
+      <a class="{% if request.endpoint == 'preprocessing.index' %}is-active{% endif %}" href="{{ url_for('preprocessing.index') }}"><span class="nav-icon" aria-hidden="true">↺</span><span>Contoh pengolahan data</span></a>
+      <a class="{% if request.endpoint == 'dokumentasi.index' %}is-active{% endif %}" href="{{ url_for('dokumentasi.index') }}"><span class="nav-icon" aria-hidden="true">∑</span><span>Cara kerja sistem</span></a>
     </nav>
     <div class="sidebar-bottom">
       <a class="nav-exit" href="{{ url_for('auth.logout') }}"><span aria-hidden="true">↪</span><span class="nav-exit-label">Keluar</span></a>
@@ -97,5 +98,6 @@
   }());
   </script>
   {% endif %}
+  {% block scripts %}{% endblock %}
 </body>
 </html>

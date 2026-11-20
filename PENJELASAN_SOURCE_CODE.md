@@ -2,7 +2,7 @@
 
 Dokumen ini menjelaskan hubungan antara tahapan penelitian, file program, dan
 perhitungan metode. Aplikasi utama menjalankan proses secara mandiri; notebook
-dan script validasi hanya digunakan sebagai pembanding eksperimen.
+dan evaluasi model dihitung otomatis dari data uji yang dipisahkan dari data latih.
 
 ## 1. Alur utama program
 
@@ -102,9 +102,9 @@ v_norm = v / sqrt(sum(v_i²))
 
 #### Random Oversampling manual
 
-`RandomOverSamplerManual` hanya bekerja pada data training. Sampel kelas
-minoritas dipilih ulang secara acak sampai jumlahnya sama dengan kelas
-mayoritas. Data testing tidak diubah.
+`RandomOverSamplerManual` tersedia untuk eksperimen dan hanya dapat bekerja
+pada data training. Konfigurasi model utama mengikuti notebook tanpa
+oversampling; data testing tetap tidak diubah.
 
 #### Multinomial Naive Bayes manual
 
@@ -117,7 +117,8 @@ P(w|c) = (count(w,c) + alpha) /
          (total_count(c) + alpha × |V|)
 ```
 
-Pipeline aplikasi menggunakan `alpha = 2.0`. Untuk setiap dokumen, skor kelas
+Pipeline aplikasi menggunakan `alpha = 0.1` dan fitur TF-IDF unigram-bigram,
+sesuai konfigurasi notebook. Untuk setiap dokumen, skor kelas
 dihitung dengan:
 
 ```text
@@ -175,7 +176,7 @@ Model utama aplikasi adalah manual:
 - TF-IDF manual;
 - Random Oversampling manual;
 - Multinomial Naive Bayes manual;
-- evaluasi manual.
+- evaluasi otomatis pada data uji terpisah.
 
 `numpy` dipakai untuk operasi array dan matriks, `pandas` untuk pengolahan
 DataFrame, dan Sastrawi hanya digunakan untuk stemming. Scikit-learn dan

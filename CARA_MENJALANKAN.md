@@ -1,55 +1,77 @@
-# Nafinder — panduan menjalankan aplikasi dan pipeline
+# Panduan Menjalankan, Migrasi Supabase & Deploy Vercel — Nafinder
 
-## Pertama kali
+Aplikasi **Nafinder** kini mendukung dual-database:
+1. **Lokal (MySQL via Laragon)**: Cocok untuk pengujian & demonstrasi offline saat seminar/sidang.
+2. **Cloud (PostgreSQL via Supabase)**: Cocok untuk deployment online di **Vercel** via GitHub.
 
-1. Nyalakan Laragon dengan **Start All**. Pastikan MySQL/MariaDB aktif.
-2. Buka PowerShell di folder `nafinder_app`.
-3. Jika database belum dibuat, jalankan `schema.sql` sekali dari Terminal Laragon:
+---
 
-```powershell
-Get-Content .\schema.sql | mysql -u root
-```
+## 1. Menjalankan Aplikasi di Lokal (Laragon)
 
-Jika perintah `mysql` tidak dikenali, buka Terminal Laragon (yang menambahkan MySQL ke PATH) lalu jalankan perintah yang sama dari folder aplikasi.
+1. Nyalakan Laragon (**Start All**), pastikan MySQL aktif di port 3306.
+2. Buka terminal/PowerShell di folder program:
+   ```powershell
+   cd "D:\Skripsi\Road to Semhas\program"
+   python app.py
+   ```
+3. Buka browser: `http://localhost:5000` (Login: `nafii` / `123456`).
 
-4. Install dependensi satu kali:
+---
 
-```powershell
-python -m pip install -r requirements.txt
-```
+## 2. Migrasi Database ke Supabase (PostgreSQL)
 
-Seluruh perhitungan metode, termasuk split anti-bocor, TF-IDF, oversampling, MNB, dan evaluasi, ditulis manual di `processing/`. Skrip `processing/validate_methods.py` saja memakai sklearn sebagai pembanding audit; aplikasi tidak memerlukannya.
+Untuk menghubungkan web ke Supabase:
+1. Buka [https://supabase.com](https://supabase.com), buat akun dan buat proyek baru (misal: `nafinder-db`).
+2. Masuk ke **Project Settings** > **Database**, salin **Connection String** bagian **URI** (atau **Connection Pooling / Port 6543** untuk Serverless).
+3. **PILIHAN A (Otomatis lewat Skrip)**:
+   Jalankan perintah ini di PowerShell:
+   ```powershell
+   python migrate_to_supabase.py "postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require"
+   ```
+   Skrip otomatis membuat semua tabel, indeks, menyalin 4.800+ baris data penelitian, dan mengatur counter sequence.
 
-Folder `uploads_tmp` adalah penyimpanan runtime lokal. Isinya dapat berupa
-state progres, cache label sementara, staging upload sebelum preprocessing,
-dan fixture pengujian. Folder `notebooks` hanya untuk notebook pengujian
-metode; hasil notebook tidak digunakan otomatis oleh aplikasi.
+4. **PILIHAN B (Lewat Supabase SQL Editor)**:
+   - Buka menu **SQL Editor** di dashboard Supabase.
+   - Buka berkas `supabase_dump.sql` di folder program, salin seluruh isinya, tempel ke SQL Editor Supabase, lalu klik **Run**.
 
-## Setiap kali menjalankan
+---
 
-```powershell
-cd "C:\path\ke\nafinder_app"
-$env:DB_HOST="localhost"; $env:DB_PORT="3306"; $env:DB_NAME="nafinder"; $env:DB_USER="root"; $env:DB_PASS=""
-python app.py
-```
+## 3. Unggah ke GitHub
 
-Biarkan jendela ini menyala. Buka browser ke http://127.0.0.1:5000, daftar akun, lalu login.
+Folder `program` telah diinisialisasi sebagai repositori Git branch `main`.
+1. Buat repository baru di [GitHub](https://github.com/new) (misal: `nafinder`). Jangan centang README/gitignore (biarkan kosong).
+2. Jalankan berkas:
+   ```bat
+   push_ke_github.bat
+   ```
+   Masukkan URL repository GitHub Anda (contoh: `https://github.com/username/nafinder.git`).
+   Berkas akan otomatis diunggah ke GitHub.
 
-## Jalankan pipeline
+---
 
-Buka menu **Kelola Dataset**. Unggah CSV mentah `ulasan_wfc_final.csv`, jalankan **Preprocessing dan pelabelan**, lalu setelah selesai jalankan **Klasifikasi MNB manual**. Panel status menunjukkan tahap aktif, progres terukur, waktu berjalan, dan waktu total. Jangan tutup terminal/browser sebelum proses selesai. Hasil muncul di Dashboard dan Hasil Klasifikasi.
+## 4. Deploy ke Vercel
 
-Dataset mentah harus memiliki kolom: `placeId`, `nama_kafe`, `teks_ulasan`, `rating_ulasan`, `tanggal_ulasan`, `kafe_id`, `valid`. Jangan unggah CSV hasil preprocessing untuk opsi proses dari awal. Setelah preprocessing berhasil, CSV mentah staging dihapus karena data dan cache label sudah tersimpan.
+1. Buka [https://vercel.com](https://vercel.com) dan login dengan akun GitHub Anda.
+2. Klik **Add New...** > **Project**, lalu pilih repositori `nafinder` yang baru diunggah.
+3. Pada halaman konfigurasi project (**Configure Project**):
+   - **Framework Preset**: Pilih `Other`.
+   - **Root Directory**: `./` (default).
+4. Buka bagian **Environment Variables**, tambahkan dua variabel penting:
+   - `SECRET_KEY`: `nafinder-super-secret-key-2026` (atau string acak bebas)
+   - `DATABASE_URL`: Masukkan URL koneksi Supabase Anda (pilih yang **Connection Pooling / Port 6543 / 5432** agar ramah serverless):
+     `postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require`
+5. Klik **Deploy**.
+6. Vercel akan otomatis meng-install dependensi dari `requirements.txt` dan menjalankan serverless function via `api/index.py`. Web Nafinder Anda langsung aktif dengan domain `.vercel.app`!
 
-## Menghentikan aplikasi
+---
 
-Tekan `Ctrl+C` di PowerShell tempat Flask berjalan. Laragon dapat dihentikan terpisah.
+## 5. Struktur Berkas Kunci untuk Cloud & Vercel
 
-## File kode yang menjelaskan metode
-
-- `processing/text_processing.py` — label lexicon/aspek dan enam tahap preprocessing (Sastrawi hanya untuk stemming).
-- `processing/naive_bayes.py` — TF-IDF manual, random oversampling manual, MNB manual.
-- `processing/evaluation.py` — confusion matrix dan metrik manual.
-- `processing/pipeline.py` — split, urutan pemanggilan proses, dan evaluasi.
-- `import_data.py` — simpan hasil ke MySQL.
-- `notebooks/` — tempat notebook pengujian dan analisis perbandingan metode.
+- `api/index.py` — Entrypoint WSGI Serverless Function untuk Vercel.
+- `vercel.json` — Konfigurasi rewrite routing Vercel ke `/api/index`.
+- `db.py` — Engine database cerdas: otomatis memakai Supabase jika `DATABASE_URL` terdeteksi, dan fallback ke MySQL Laragon jika tidak ada.
+- `models/tables.py` — Skema ORM multi-dialect (PostgreSQL & MySQL).
+- `schema_supabase.sql` — DDL skema murni PostgreSQL untuk Supabase.
+- `supabase_dump.sql` — DDL + seluruh data hasil penelitian siap eksekusi di Supabase.
+- `migrate_to_supabase.py` — Skrip sinkronisasi 1-klik dari MySQL ke Supabase.
+- `processing/assets/` — Model MNB (`model_mnb.pkl`) & vectorizer (`vectorizer.pkl`) pre-trained siap pakai di Vercel tanpa delay cold start.

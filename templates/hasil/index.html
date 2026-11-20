@@ -1,60 +1,83 @@
-{% extends "base.html" %} {% block title %}Hasil Klasifikasi — Nafinder{%
-endblock %} {% block content %}
+{% extends "base.html" %} {% block title %}Coba Analisis Ulasan — Sistem Analisis Ulasan Kafe{% endblock %} {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Hasil analisis / model manual</p>
-  <h1>Yang terbaca dari ulasan</h1>
-  <p class="lede">
-    Ringkasan performa Multinomial Naive Bayes dengan TF-IDF dan Random
-    Oversampling pada data training
-  </p>
+  <p class="eyebrow">Coba fitur analisis</p>
+  <h1>Analisis sebuah ulasan</h1>
+  <p class="lede">Masukkan ulasan tentang kafe untuk melihat topik yang disebutkan dan apakah pelanggan memuji atau mengeluh. Hasil ini adalah perkiraan sistem, bukan pengganti penilaian manusia.</p>
 </header>
 {% if evaluasi %}
+<section class="workflow-panel" id="uji-ulasan">
+  <div class="section-heading">
+    <div><p class="eyebrow">Langkah 1</p><h2>Tulis ulasan yang ingin diperiksa</h2></div>
+    <span class="badge badge-matcha">Pujian / Keluhan</span>
+  </div>
+  <p class="muted">Contoh: “Makanannya enak, harganya terjangkau, tetapi tempatnya sempit dan Wi-Fi-nya lambat.”</p>
+  <form id="review-test-form">
+    <label for="review-test-input">Isi ulasan</label>
+    <textarea id="review-test-input" rows="4" maxlength="2000" required placeholder="Tulis ulasan Anda di sini..."></textarea>
+    <button class="btn-action-active" type="submit">Lihat hasil ulasan</button>
+  </form>
+  <div id="review-test-message" class="flash flash-info" hidden></div>
+  <div id="review-test-results" class="table-wrap" hidden>
+    <table class="data-table"><thead><tr><th>Bagian ulasan</th><th>Aspek</th><th>Hasil sentimen</th></tr></thead><tbody id="review-test-body"></tbody></table>
+  </div>
+</section>
+
+<div class="section-heading section-heading-spaced">
+  <div><p class="eyebrow">Hasil pengujian</p><h2>Seberapa sering sistem menjawab dengan tepat?</h2></div>
+</div>
 <div class="result-hero">
   <div>
-    <span class="eyebrow">Akurasi keseluruhan</span
+    <span class="eyebrow">Ketepatan hasil pada data uji</span
     ><strong
       >{{ '%.2f'|format(evaluasi.accuracy * 100) }}<small>%</small></strong
     >
-    <p class="muted">Kemampuan model mengenali label pada data testing</p>
+    <p class="muted">Dari setiap 100 ulasan berlabel yang dipakai untuk pengujian, sekitar {{ '%.0f'|format(evaluasi.accuracy * 100) }} hasilnya sesuai dengan label pemeriksa.</p>
   </div>
   <div class="result-stats">
     <div>
-      <span>Macro F1</span
+      <span>F1 seimbang antarpendapat</span
       ><strong>{{ '%.4f'|format(evaluasi.f1_macro) }}</strong>
     </div>
     <div>
-      <span>Weighted F1</span
+      <span>F1 sesuai jumlah contoh</span
       ><strong>{{ '%.4f'|format(evaluasi.f1_weighted) }}</strong>
     </div>
     <div>
-      <span>Label testing</span
+      <span>Jumlah ulasan yang diuji</span
       ><strong>{{ "{:,}".format(evaluasi.jumlah_testing|int) }}</strong>
     </div>
   </div>
 </div>
+<div class="doc-callout">
+  <strong>Arti angka-angka ini</strong>
+  <p><strong>Ketepatan</strong> menunjukkan seberapa sering hasil sistem cocok dengan jawaban pemeriksa.
+    <strong>F1 seimbang</strong> memeriksa kemampuan sistem mengenali pujian dan keluhan secara setara.
+    <strong>F1 sesuai jumlah contoh</strong> juga menilai keduanya, tetapi memperhitungkan banyaknya contoh tiap jenis.
+    Semua angka dihitung dari ulasan berlabel yang tidak dipakai saat sistem belajar.</p>
+</div>
 <div class="section-heading">
   <div>
-    <p class="eyebrow">Pemeriksaan model</p>
-    <h2>Confusion matrix</h2>
+    <p class="eyebrow">Rincian pengujian</p>
+    <h2>Hasil untuk tiap jenis pendapat</h2>
   </div>
-  <span class="muted">Baris aktual · kolom prediksi</span>
+  <span class="muted">Baris adalah jawaban pemeriksa; kolom adalah jawaban sistem.</span>
 </div>
 {% if cm and cm.matrix %}
 <div class="table-wrap">
   <table class="data-table matrix-table">
     <thead>
       <tr>
-        <th>Aktual \ Prediksi</th>
+        <th>Jawaban sebenarnya</th>
         {% for cls in cm.classes %}
-        <th>Prediksi {{ cls|title }}</th>
+        <th>Diprediksi {{ cls|title }}</th>
         {% endfor %}
-        <th>Total aktual</th>
+        <th>Jumlah contoh</th>
       </tr>
     </thead>
     <tbody>
       {% for row in cm.matrix %}{% set i=loop.index0 %}
       <tr>
-        <th>Aktual {{ cm.classes[i]|title }}</th>
+        <th>{{ cm.classes[i]|title }}</th>
         {% for value in row %}
         <td {% if loop.index0 == i %}class="cell-diagonal"{% endif %}>
           {{ "{:,}".format(value) }}
@@ -70,7 +93,7 @@ endblock %} {% block content %}
 <div class="section-heading section-heading-spaced">
   <div>
     <p class="eyebrow">Detail</p>
-    <h2>Metrik per kelas</h2>
+    <h2>Rincian hasil per jenis sentimen</h2>
   </div>
 </div>
 <div class="table-wrap">
@@ -78,10 +101,10 @@ endblock %} {% block content %}
     <thead>
       <tr>
         <th>Kelas</th>
-        <th>Precision</th>
-        <th>Recall</th>
-        <th>F1</th>
-        <th>Support</th>
+        <th>Ketepatan prediksi</th>
+        <th>Jumlah yang berhasil dikenali</th>
+        <th>Nilai gabungan</th>
+        <th>Jumlah contoh</th>
       </tr>
     </thead>
     <tbody>
@@ -95,7 +118,7 @@ endblock %} {% block content %}
       </tr>
       {% endfor %}
       <tr class="row-total">
-        <td><strong>Macro average</strong></td>
+        <td><strong>Rata-rata seimbang</strong></td>
         <td>{{ '%.4f'|format(evaluasi.precision_macro) }}</td>
         <td>{{ '%.4f'|format(evaluasi.recall_macro) }}</td>
         <td>{{ '%.4f'|format(evaluasi.f1_macro) }}</td>
@@ -107,7 +130,53 @@ endblock %} {% block content %}
 {% endif %}
 {% else %}
 <div class="flash flash-info">
-  Belum ada hasil klasifikasi. Jalankan pipeline dari halaman
-  <a href="{{ url_for('dataset.index') }}">Kelola Dataset</a>
+  Hasil pengujian belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data penelitian</a> untuk memeriksa status model.
 </div>
 {% endif %} {% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('review-test-form');
+  if (!form) return;
+  const input = document.getElementById('review-test-input');
+  const message = document.getElementById('review-test-message');
+  const results = document.getElementById('review-test-results');
+  const body = document.getElementById('review-test-body');
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    message.hidden = false;
+    message.textContent = 'Menganalisis ulasan...';
+    results.hidden = true;
+    try {
+      const response = await fetch('{{ url_for("hasil.test_review") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        body: JSON.stringify({text: input.value})
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Ulasan tidak dapat diproses.');
+      body.textContent = '';
+      data.predictions.forEach(function (item) {
+        const row = document.createElement('tr');
+        [item.sub_kalimat, item.aspek.replaceAll('_', ' ')].forEach(function (value) {
+          const cell = document.createElement('td');
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+        const sentiment = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = 'class-dot class-' + item.sentimen;
+        badge.textContent = item.sentimen;
+        sentiment.appendChild(badge);
+        row.appendChild(sentiment);
+        body.appendChild(row);
+      });
+      message.hidden = true;
+      results.hidden = false;
+    } catch (error) {
+      message.textContent = error.message;
+    }
+  });
+}());
+</script>
+{% endblock %}

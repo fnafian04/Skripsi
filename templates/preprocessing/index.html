@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Contoh Pengolahan Data — Sistem Analisis Ulasan Kafe{% endblock %}
+{% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Contoh cara ulasan disiapkan</p>
+  <h1>Dari ulasan asli ke hasil yang dibaca sistem</h1>
+  <p class="lede">Lihat perbedaan teks sebelum dan sesudah dirapikan. Sistem kemudian mencari topik yang dibahas dan mengenali apakah isinya berupa pujian atau keluhan.</p>
+</header>
+
+{% if summary %}
+<div class="stat-grid">
+  <div class="stat-card"><span class="stat-kicker">Ulasan awal</span><strong>{{ "{:,}".format(summary.ulasan_awal) }}</strong><span>Baris pada CSV mentah</span></div>
+  <div class="stat-card"><span class="stat-kicker">Ulasan yang dapat dipakai</span><strong>{{ "{:,}".format(summary.ulasan_valid) }}</strong><span>Memenuhi syarat untuk dianalisis</span></div>
+  <div class="stat-card"><span class="stat-kicker">Hasil topik dan pendapat</span><strong>{{ "{:,}".format(summary.get("label", 0)) }}</strong><span>Setiap hasil menghubungkan satu topik dengan satu pendapat</span></div>
+  <div class="stat-card"><span class="stat-kicker">Kafe</span><strong>{{ "{:,}".format(summary.get("kafe", 0)) }}</strong><span>Memiliki ulasan berlabel</span></div>
+</div>
+
+<section class="table-section">
+  <div class="section-heading"><div><p class="eyebrow">Sebelum teks dirapikan</p><h2>Ulasan asli</h2></div><span class="muted">{{ summary.nama_dataset }}</span></div>
+  {% if raw_sample %}<div class="table-wrap"><table class="data-table"><thead><tr><th>Kafe</th><th>Ulasan asli</th><th>Rating</th></tr></thead><tbody>{% for row in raw_sample %}<tr><td>{{ row.get("nama_kafe", "—") }}</td><td>{{ row.get("teks_ulasan", "—") }}</td><td>{{ row.get("rating_ulasan", "—") }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">Belum ada data mentah.</p>{% endif %}
+</section>
+
+<section class="table-section">
+  <div class="section-heading"><div><p class="eyebrow">Sesudah teks disiapkan</p><h2>Topik dan pendapat yang dikenali</h2></div><span class="muted">Pendapat: positif atau negatif</span></div>
+  {% if label_sample %}<div class="table-wrap"><table class="data-table"><thead><tr><th>Kafe</th><th>Bagian ulasan</th><th>Topik</th><th>Pendapat</th><th>Teks setelah dirapikan</th></tr></thead><tbody>{% for row in label_sample %}<tr><td>{{ row.get("nama_kafe", "—") }}</td><td>{{ row.get("sub_kalimat", "—") }}</td><td>{{ row.get("aspek", "—")|replace("_", " ")|title }}</td><td><span class="class-dot class-{{ row.get("sentimen", "") }}">{{ row.get("sentimen", "—")|title }}</span></td><td>{{ row.get("teks_preprocessed", "—") }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">Contoh hasil belum tersedia. Buka <a href="{{ url_for('dataset.index') }}">Data penelitian</a> untuk memeriksa statusnya.</p>{% endif %}
+</section>
+{% else %}
+<div class="flash flash-info">Data penelitian belum tersedia. Hubungi pengelola aplikasi.</div>
+{% endif %}
+{% endblock %}

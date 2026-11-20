@@ -1,34 +1,34 @@
 """
-Model SQLAlchemy Nafinder — mencerminkan schema.sql satu per satu.
-Nama kolom, tipe, ENUM, constraint: ikuti schema.sql sebagai sumber kebenaran.
-Jangan ubah file ini tanpa mengubah schema.sql (dan sebaliknya) secara bersamaan.
+Model SQLAlchemy Nafinder — kompatibel dengan MySQL (Laragon) dan PostgreSQL (Supabase).
 
-Catatan tipe: unsigned ditulis lewat tipe dialect MySQL (mysql.INTEGER(unsigned=True))
-bukan kwarg kolom — sesuai SQLAlchemy 2.x.
+Tipe data integer menggunakan tipe standar SQLAlchemy (Integer, BigInteger, SmallInteger)
+agar portabel lintas dialect database tanpa error 'unsigned' di PostgreSQL.
 """
 
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Text, Enum, Boolean,
-    Numeric, Date, DateTime, JSON, ForeignKey, UniqueConstraint, Index
+    Numeric, Date, DateTime, JSON, ForeignKey, UniqueConstraint, Index,
+    Integer, BigInteger, SmallInteger
 )
-from sqlalchemy.dialects import mysql
 from db import Base
 
-# Alias tipe yang dipakai berulang, meniru schema.sql
-UInt = mysql.INTEGER(unsigned=True)          # INT UNSIGNED
-UBigInt = mysql.BIGINT(unsigned=True)        # BIGINT UNSIGNED
-UTinyInt = mysql.TINYINT(unsigned=True)      # TINYINT UNSIGNED (rating 1..5)
+# Tipe data integer generik yang kompatibel untuk MySQL dan PostgreSQL
+UInt = Integer               # INT / SERIAL
+UBigInt = BigInteger         # BIGINT / BIGSERIAL
+UTinyInt = SmallInteger      # SMALLINT / TINYINT (rating 1..5)
 
 
-# Enum tetap sama seperti di schema.sql — jangan diduplikasi lewat string biasa
+# Enum dengan native_enum=False agar disimpan sebagai VARCHAR + CHECK constraint
+# sehingga portabel dan tidak bentrok antar dialect database
 ASPEK_ENUM = Enum(
     'makanan_minuman', 'pelayanan', 'harga',
     'suasana', 'fasilitas_wfc', 'kebersihan',
-    name='aspek_enum'
+    name='aspek_enum',
+    native_enum=False
 )
-SENTIMEN_ENUM = Enum('positif', 'netral', 'negatif', name='sentimen_enum')
-STATUS_UPLOAD_ENUM = Enum('berhasil', 'gagal', 'sebagian', name='status_upload_enum')
+SENTIMEN_ENUM = Enum('positif', 'netral', 'negatif', name='sentimen_enum', native_enum=False)
+STATUS_UPLOAD_ENUM = Enum('berhasil', 'gagal', 'sebagian', name='status_upload_enum', native_enum=False)
 
 
 class User(Base):
@@ -52,7 +52,7 @@ class Kafe(Base):
     url_maps = Column(String(512), nullable=True)
     jumlah_ulasan = Column(UInt, nullable=False, default=0)
 
-    # 4 fasilitas WFC — None = belum diketahui, 0/False = tidak tersedia
+    # 4 fasilitas WFC — None = belum diketahui, False/0 = tidak tersedia, True/1 = tersedia
     buka_24jam = Column(Boolean, nullable=True)
     wifi = Column(Boolean, nullable=True)
     stopkontak = Column(Boolean, nullable=True)
@@ -88,7 +88,7 @@ class LabelSentimen(Base):
 
     id = Column(UBigInt, primary_key=True, autoincrement=True)
     ulasan_id = Column(UBigInt, ForeignKey('ulasan.id', ondelete='CASCADE'), nullable=False)
-    kafe_id = Column(UInt, ForeignKey('kafe.id', ondelete='CASCADE'), nullable=False)  # denormalisasi terarah
+    kafe_id = Column(UInt, ForeignKey('kafe.id', ondelete='CASCADE'), nullable=False)
     sub_kalimat = Column(String(2048), nullable=False)
     aspek = Column(ASPEK_ENUM, nullable=False)
     sentimen = Column(SENTIMEN_ENUM, nullable=False)
@@ -106,94 +106,6 @@ class LabelSentimenOptimized(Base):
     sub_kalimat = Column(String(2048), nullable=False)
     aspek = Column(ASPEK_ENUM, nullable=False)
     sentimen = Column(SENTIMEN_ENUM, nullable=False)
-
-
-class ValidasiLabel(Base):
-    __tablename__ = 'validasi_label'
-    __table_args__ = (
-        UniqueConstraint('label_id', name='uq_validasi_label'),
-        Index('idx_validasi_status', 'status'),
-    )
-
-    id = Column(UBigInt, primary_key=True, autoincrement=True)
-    label_id = Column(UBigInt, ForeignKey('label_sentimen.id', ondelete='CASCADE'), nullable=False)
-    urutan = Column(UInt, nullable=False)
-    status = Column(String(16), nullable=True)
-    aspek_koreksi = Column(String(32), nullable=True)
-    sentimen_koreksi = Column(String(16), nullable=True)
-    catatan = Column(String(500), nullable=True)
-    user_id = Column(UInt, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
-    diperiksa_pada = Column(DateTime, nullable=True)
-
-
-class ValidasiLabelAspek(Base):
-    __tablename__ = 'validasi_label_aspek'
-    __table_args__ = (
-        UniqueConstraint('validasi_id', 'aspek', name='uq_validasi_aspek'),
-        Index('idx_validasi_aspek', 'validasi_id'),
-    )
-
-    id = Column(UBigInt, primary_key=True, autoincrement=True)
-    validasi_id = Column(UBigInt, ForeignKey('validasi_label.id', ondelete='CASCADE'), nullable=False)
-    aspek = Column(ASPEK_ENUM, nullable=False)
-
-
-class ValidasiV4(Base):
-    __tablename__ = 'validasi_v4'
-    __table_args__ = (Index('idx_validasi_v4_status', 'status'),)
-
-    id = Column(UBigInt, primary_key=True, autoincrement=True)
-    urutan = Column(UInt, nullable=False)
-    sub_kalimat = Column(String(2048), nullable=False)
-    teks_ulasan = Column(Text, nullable=False)
-    rating = Column(UTinyInt, nullable=True)
-    aspek = Column(ASPEK_ENUM, nullable=False)
-    sentimen = Column(SENTIMEN_ENUM, nullable=False)
-    status = Column(String(16), nullable=True)
-    sentimen_koreksi = Column(String(16), nullable=True)
-    catatan = Column(String(500), nullable=True)
-    diperiksa_pada = Column(DateTime, nullable=True)
-
-
-class ValidasiV4Aspek(Base):
-    __tablename__ = 'validasi_v4_aspek'
-    __table_args__ = (
-        UniqueConstraint('validasi_id', 'aspek', name='uq_validasi_v4_aspek'),
-        Index('idx_validasi_v4_aspek', 'validasi_id'),
-    )
-
-    id = Column(UBigInt, primary_key=True, autoincrement=True)
-    validasi_id = Column(UBigInt, ForeignKey('validasi_v4.id', ondelete='CASCADE'), nullable=False)
-    aspek = Column(ASPEK_ENUM, nullable=False)
-
-
-class ValidasiV5(Base):
-    __tablename__ = 'validasi_v5'
-    __table_args__ = (Index('idx_validasi_v5_status', 'status'),)
-
-    id = Column(UBigInt, primary_key=True, autoincrement=True)
-    urutan = Column(UInt, nullable=False)
-    sub_kalimat = Column(String(2048), nullable=False)
-    teks_ulasan = Column(Text, nullable=False)
-    rating = Column(UTinyInt, nullable=True)
-    aspek = Column(ASPEK_ENUM, nullable=False)
-    sentimen = Column(SENTIMEN_ENUM, nullable=False)
-    status = Column(String(16), nullable=True)
-    sentimen_koreksi = Column(String(16), nullable=True)
-    catatan = Column(String(500), nullable=True)
-    diperiksa_pada = Column(DateTime, nullable=True)
-
-
-class ValidasiV5Aspek(Base):
-    __tablename__ = 'validasi_v5_aspek'
-    __table_args__ = (
-        UniqueConstraint('validasi_id', 'aspek', name='uq_validasi_v5_aspek'),
-        Index('idx_validasi_v5_aspek', 'validasi_id'),
-    )
-
-    id = Column(UBigInt, primary_key=True, autoincrement=True)
-    validasi_id = Column(UBigInt, ForeignKey('validasi_v5.id', ondelete='CASCADE'), nullable=False)
-    aspek = Column(ASPEK_ENUM, nullable=False)
 
 
 class SkorAspek(Base):

@@ -49,7 +49,7 @@ POSITIF = {
     "sigap","responsif","tanggap","bersahabat","lengkap","komplit","memadai","hemat","juara","menarik","menyenangkan","senang","bahagia","membantu","perhatian","terbaik",
 }
 NEGATIF = {
-    "jelek","kecewa","lambat","mahal","ketus","kotor","bau","pahit","antri","antre","jorok","berisik","overpriced","expensive","bad","disappointed","dirty","slow","cold","stale","mengecewakan",
+    "jelek","kecewa","lambat","mahal","ketus","kotor","bau","pahit","antri","antre","jorok","berisik","sempit","overpriced","expensive","bad","disappointed","dirty","slow","cold","stale","mengecewakan",
     "sembarangan","panas","sumpek","sesak","lama","ribet","susah","quite high","kemahalan","hambar","dingin","tidak ramah","not worth","poor","worst","percuma","jutek",
     "basi","gosong","amis","judes","lelet","lemot","kacau","buruk","kesal","sebal","benci","nyebelin","nyeselin","kesel","ngeselin","parahnya","enek","eneg",
 }

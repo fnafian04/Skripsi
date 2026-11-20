@@ -1,93 +1,120 @@
 {% extends "base.html" %}
-{% block title %}Dokumentasi Metode — Nafinder{% endblock %}
+{% block title %}Cara Kerja Sistem — Sistem Analisis Ulasan Kafe{% endblock %}
 {% block content %}
 <header class="page-intro">
-  <p class="eyebrow">Dokumentasi metode / source code</p>
-  <h1>Rumus yang bekerja di balik program</h1>
-  <p class="lede">Dokumentasi visual tahapan preprocessing dan Multinomial Naive Bayes yang diimplementasikan manual pada aplikasi Nafinder</p>
+  <p class="eyebrow">Penjelasan untuk pengguna</p>
+  <h1>Bagaimana sistem bekerja?</h1>
+  <p class="lede">Sistem merapikan teks ulasan, mencari topik yang dibahas, lalu memperkirakan apakah pelanggan memuji atau mengeluh. Hasilnya membantu menyusun urutan kafe.</p>
 </header>
 
 <nav class="doc-nav" aria-label="Bagian dokumentasi">
-  <a href="#preprocessing">01. Preprocessing</a>
-  <a href="#klasifikasi">02. Klasifikasi</a>
-  <a href="#evaluasi">03. Evaluasi</a>
+  <a href="#preprocessing">01. Menyiapkan ulasan</a>
+  <a href="#klasifikasi">02. Membaca pendapat</a>
+  <a href="#evaluasi">03. Memeriksa ketepatan</a>
 </nav>
-<div class="doc-callout"><strong>Keterangan jumlah kafe</strong><p>Dataset mentah berisi 324 kafe dan seluruhnya memiliki ulasan valid<br>Setelah deteksi aspek dan pelabelan, 323 kafe menghasilkan minimal satu label aspek-sentimen sehingga angka agregasi label dapat berjumlah 323</p></div>
+<div class="doc-callout">
+  <strong>Gambaran singkat</strong>
+  <p>Sistem bekerja dalam tiga tahap. Pertama, ulasan dirapikan agar komputer dapat mengolahnya.
+    Kedua, sistem belajar membedakan sentimen positif dan negatif.
+    Ketiga, hasil prediksi dibandingkan dengan data uji untuk mengetahui seberapa baik model bekerja.</p>
+</div>
 
 <section class="doc-section" id="preprocessing">
-  <div class="doc-section-heading"><span class="doc-number">01</span><div><p class="eyebrow">processing/text_processing.py</p><h2>Preprocessing teks</h2><p>Ulasan mentah diubah menjadi teks terstruktur sebelum digunakan oleh model</p></div></div>
+  <div class="doc-section-heading"><span class="doc-number">01</span><div><p class="eyebrow">Tahap menyiapkan ulasan</p><h2>Membersihkan dan merapikan teks</h2><p>Istilah teknisnya adalah <em>preprocessing</em>. Komputer tidak langsung memahami kalimat seperti manusia, jadi teks dirapikan terlebih dahulu sambil menjaga kata penting, seperti kata “tidak”.</p></div></div>
   <div class="doc-flow">
-    <article class="doc-step"><span>1</span><div><h3>Cleaning</h3><p>Menghapus URL, mention, hashtag, emoji, angka, dan tanda baca</p><div class="math-block">\[
+    <article class="doc-step"><span>1</span><div><h3>Cleaning</h3><p>Menghapus bagian yang tidak diperlukan seperti URL, mention, hashtag, emoji, angka, dan tanda baca. Contoh: <code>kopinya enak! @cafe</code> menjadi <code>kopinya enak cafe</code>.</p><div class="math-block">\[
       T_c = \operatorname{clean}(T)
-    \]</div></div></article>
-    <article class="doc-step"><span>2</span><div><h3>Case folding</h3><p>Seluruh huruf diseragamkan menjadi huruf kecil</p><div class="math-block">\[
+    \]</div><div class="formula-variables"><div class="formula-variable"><strong>T</strong><span>teks ulasan asli</span></div><div class="formula-variable"><strong>T<sub>c</sub></strong><span>teks setelah bagian tidak perlu dihapus</span></div></div></div></article>
+    <article class="doc-step"><span>2</span><div><h3>Case folding</h3><p>Semua huruf dibuat kecil supaya <code>Kopi</code> dan <code>kopi</code> dianggap sebagai kata yang sama.</p><div class="math-block">\[
       T_l = \operatorname{lower}(T_c)
-    \]</div></div></article>
-    <article class="doc-step"><span>3</span><div><h3>Tokenizing</h3><p>Teks dipecah menjadi token kata</p><div class="math-block">\[
+    \]</div><div class="formula-variables"><div class="formula-variable"><strong>T<sub>c</sub></strong><span>teks hasil cleaning</span></div><div class="formula-variable"><strong>T<sub>l</sub></strong><span>teks yang seluruh hurufnya dibuat kecil</span></div></div></div></article>
+    <article class="doc-step"><span>3</span><div><h3>Tokenizing</h3><p>Kalimat dipecah menjadi kata-kata kecil yang disebut token. Token inilah yang akan dihitung dan dipelajari oleh model.</p><div class="math-block">\[
       T_l \longrightarrow [w_1,w_2,\ldots,w_n]
-    \]</div></div></article>
-    <article class="doc-step"><span>4</span><div><h3>Normalisasi</h3><p>Kata tidak baku dipetakan ke bentuk baku menggunakan kamus normalisasi</p><div class="math-block">\[
+    \]</div><div class="formula-variables"><div class="formula-variable"><strong>T<sub>l</sub></strong><span>teks huruf kecil</span></div><div class="formula-variable"><strong>w<sub>i</sub></strong><span>token atau kata ke-<em>i</em></span></div><div class="formula-variable"><strong>n</strong><span>jumlah token dalam teks</span></div></div></div></article>
+    <article class="doc-step"><span>4</span><div><h3>Normalisasi</h3><p>Singkatan dan bahasa informal diubah ke bentuk baku, misalnya <code>bgt</code> menjadi <code>sangat</code> dan <code>gk</code> menjadi <code>tidak</code>.</p><div class="math-block">\[
       w_i' =
       \begin{cases}
       \operatorname{kamus}(w_i), & w_i \in \mathcal{K}\\
       w_i, & w_i \notin \mathcal{K}
       \end{cases}
-    \]</div></div></article>
-    <article class="doc-step"><span>5</span><div><h3>Stopword removal</h3><p>Kata umum dihapus, sedangkan kata negasi penting tetap dipertahankan</p><div class="math-block">\[
+    \]</div><div class="formula-variables"><div class="formula-variable"><strong>w<sub>i</sub></strong><span>token sebelum normalisasi</span></div><div class="formula-variable"><strong>w<sub>i</sub>'</strong><span>token setelah dibakukan</span></div><div class="formula-variable"><strong>K</strong><span>kamus kata tidak baku</span></div></div></div></article>
+    <article class="doc-step"><span>5</span><div><h3>Stopword removal</h3><p>Kata umum yang tidak banyak membantu analisis dihapus. Kata negasi seperti <code>tidak</code>, <code>bukan</code>, dan <code>belum</code> tetap disimpan karena dapat mengubah arti sentimen.</p><div class="math-block">\[
       T_s = \{w_i' \mid w_i' \notin S\}
-    \]</div></div></article>
-    <article class="doc-step"><span>6</span><div><h3>Stemming</h3><p>Token diubah menjadi bentuk dasar menggunakan Sastrawi</p><div class="math-block">\[
+    \]</div><div class="formula-variables"><div class="formula-variable"><strong>T<sub>s</sub></strong><span>teks setelah stopword dihapus</span></div><div class="formula-variable"><strong>w<sub>i</sub>'</strong><span>token hasil normalisasi</span></div><div class="formula-variable"><strong>S</strong><span>kumpulan stopword</span></div></div></div></article>
+    <article class="doc-step"><span>6</span><div><h3>Stemming</h3><p>Kata berimbuhan dikembalikan ke kata dasar, misalnya <code>pelayanannya</code> menjadi <code>layan</code>, menggunakan Sastrawi.</p><div class="math-block">\[
       T_r = [\operatorname{stem}(w) \mid w \in T_s]
-    \]</div></div></article>
+    \]</div><div class="formula-variables"><div class="formula-variable"><strong>T<sub>r</sub></strong><span>teks setelah stemming</span></div><div class="formula-variable"><strong>stem(w)</strong><span>fungsi untuk mencari kata dasar</span></div><div class="formula-variable"><strong>T<sub>s</sub></strong><span>teks sebelum stemming</span></div></div></div></article>
   </div>
-  <div class="doc-callout"><strong>Pelabelan sentimen berbasis lexicon</strong><p>Setiap kata positif menambah skor satu dan kata negatif mengurangi skor satu<br>Negasi membalik skor kata sentimen di sekitarnya</p><div class="math-block">\[
+  <div class="doc-callout"><strong>Pelabelan aspek dan sentimen</strong><p>Sistem mencari kata kunci aspek seperti makanan, pelayanan, harga, suasana, fasilitas, dan kebersihan. Setelah itu, kamus sentimen menghitung kata positif dan negatif. Data yang tidak memiliki sinyal positif atau negatif tidak dimasukkan ke dataset biner.</p><div class="math-block">\[
     \operatorname{skor}(T)=\sum_{w\in P}\!1-\sum_{w\in N}\!1
-  \]</div><p class="doc-small">Jika skor \(>0\), label positif<br>Jika skor \(<0\), label negatif<br>Jika skor \(=0\), rating digunakan sebagai cadangan: rating 5 positif, rating 1 negatif, selain itu netral</p></div>
+  \]</div><div class="formula-variables"><div class="formula-variable"><strong>T</strong><span>teks ulasan yang dianalisis</span></div><div class="formula-variable"><strong>P</strong><span>kata positif yang ditemukan</span></div><div class="formula-variable"><strong>N</strong><span>kata negatif yang ditemukan</span></div></div><p class="doc-small">Jika skor \(>0\), label positif<br>Jika skor \(<0\), label negatif<br>Jika skor \(=0\), data tidak dipakai dalam dataset klasifikasi biner</p></div>
 </section>
 
 <section class="doc-section" id="klasifikasi">
-  <div class="doc-section-heading"><span class="doc-number">02</span><div><p class="eyebrow">processing/classification.py · naive_bayes.py</p><h2>Multinomial Naive Bayes</h2><p>Data berlabel dibagi, diubah menjadi fitur numerik, diseimbangkan, lalu digunakan untuk melatih model</p></div></div>
-  <div class="doc-subsection"><h3>A. Pembagian data anti-kebocoran</h3><p>Pembagian dilakukan berdasarkan <code>review_id</code> sehingga satu ulasan tidak tersebar ke training dan testing</p><div class="math-block">\[
+  <div class="doc-section-heading"><span class="doc-number">02</span><div><p class="eyebrow">Tahap mengenali pendapat</p><h2>Memprediksi pujian dan keluhan</h2><p>Metode yang digunakan bernama Multinomial Naive Bayes. Sederhananya, sistem mempelajari kata-kata dari contoh ulasan berlabel, lalu menggunakan pola tersebut untuk memperkirakan pendapat pada ulasan baru.</p></div></div>
+  <div class="doc-subsection"><h3>A. Memisahkan contoh belajar dan pengujian</h3><p>Sebagian ulasan dipakai untuk mengajari sistem (data latih), dan sebagian lain disimpan untuk menguji hasilnya (data uji). Perbandingannya 80:20. Ulasan yang sama tidak diletakkan di kedua bagian agar pengujian tetap adil.</p><div class="math-block">\[
     D = D_{\mathrm{train}} \cup D_{\mathrm{test}},\qquad
     D_{\mathrm{train}} \cap D_{\mathrm{test}} = \varnothing
-  \]</div><p class="doc-small">Konfigurasi program: \(test\_size=0.2\), \(random\_state=42\)</p></div>
-  <div class="doc-subsection"><h3>B. Pembobotan TF-IDF manual</h3><p>TF-IDF memberi bobot tinggi pada kata yang penting dalam dokumen tetapi jarang muncul pada dokumen lain</p><div class="formula-pair"><div class="math-block">\[
-    tf(t,d)=
-    \begin{cases}
-    1+\ln f_{t,d}, & f_{t,d}>0\\
-    0, & f_{t,d}=0
-    \end{cases}
-  \]</div><div class="math-block">\[
-    idf(t)=\ln\left(\frac{1+N}{1+df(t)}\right)+1
-  \]</div></div><div class="math-block">\[
-    \operatorname{tfidf}(t,d)=tf(t,d)\times idf(t)
-    \qquad
-    \mathbf{v}_{norm}=\frac{\mathbf{v}}{\sqrt{\sum_i v_i^2}}
-  \]</div></div>
-  <div class="doc-subsection"><h3>C. Random Oversampling manual</h3><p>Oversampling hanya diterapkan pada data training untuk menyeimbangkan kelas minoritas</p><div class="math-block">\[
-    n_{\mathrm{target}}=\max(n_{\mathrm{negatif}},n_{\mathrm{netral}},n_{\mathrm{positif}})
-  \]</div><p class="doc-small">Sampel kelas yang jumlahnya lebih kecil dipilih ulang secara acak hingga mencapai \(n_{\mathrm{target}}\)<br>Data testing tidak diubah</p></div>
-  <div class="doc-subsection"><h3>D. Perhitungan Multinomial Naive Bayes</h3><p>Program menyimpan nilai dalam bentuk logaritma agar perhitungan stabil</p><div class="formula-pair"><div class="math-block">\[
-    \log P(c)=\ln\left(\frac{N_c}{N}\right)
-  \]</div><div class="math-block">\[
-    P(w\mid c)=
-    \frac{\operatorname{count}(w,c)+\alpha}
-    {\sum_{v\in V}\operatorname{count}(v,c)+\alpha |V|}
-  \]</div></div><p class="doc-small">Program menggunakan Laplace smoothing \(\alpha=2.0\)</p><div class="math-block">\[
-    \hat{c}=\arg\max_{c}
-    \left[\log P(c)+
-    \sum_{w\in d}\operatorname{tfidf}(w,d)\log P(w\mid c)\right]
-  \]</div></div>
+  \]</div><div class="formula-variables"><div class="formula-variable"><strong>D</strong><span>seluruh dataset</span></div><div class="formula-variable"><strong>D<sub>train</sub></strong><span>data yang dipakai untuk belajar</span></div><div class="formula-variable"><strong>D<sub>test</sub></strong><span>data yang dipakai untuk menguji model</span></div><div class="formula-variable"><strong>\(\varnothing\)</strong><span>tidak ada data yang sama di kedua kelompok</span></div></div><p class="doc-small">Konfigurasi program: \(test\_size=0.2\), \(random\_state=42\)</p></div>
+  <div class="doc-subsection"><h3>B. Menilai pentingnya kata (TF-IDF)</h3><p>TF-IDF adalah cara memberi nilai pada kata. Kata yang muncul dalam ulasan ini tetapi jarang muncul di ulasan lain mendapat nilai lebih besar karena lebih membantu membedakan isi ulasan.</p>
+    <div class="formula-pair">
+      <div class="math-block">\[
+        tf(t,d)=
+        \begin{cases}
+        1+\ln f_{t,d}, & f_{t,d}>0\\
+        0, & f_{t,d}=0
+        \end{cases}
+      \]</div>
+      <div class="math-block">\[
+        idf(t)=\ln\left(\frac{1+N}{1+df(t)}\right)+1
+      \]</div>
+    </div>
+    <div class="formula-variables"><div class="formula-variable"><strong>t</strong><span>kata yang sedang dihitung</span></div><div class="formula-variable"><strong>d</strong><span>satu dokumen atau ulasan</span></div><div class="formula-variable"><strong>f<sub>t,d</sub></strong><span>jumlah kemunculan kata <em>t</em> dalam dokumen <em>d</em></span></div><div class="formula-variable"><strong>N</strong><span>jumlah seluruh dokumen</span></div><div class="formula-variable"><strong>df(t)</strong><span>jumlah dokumen yang memuat kata <em>t</em></span></div></div>
+    <div class="math-block">\[
+      \operatorname{tfidf}(t,d)=tf(t,d)\times idf(t)
+      \qquad
+      \mathbf{v}_{norm}=\frac{\mathbf{v}}{\sqrt{\sum_i v_i^2}}
+    \]</div>
+    <div class="formula-variables"><div class="formula-variable"><strong>tfidf(t,d)</strong><span>bobot kata <em>t</em> dalam dokumen <em>d</em></span></div><div class="formula-variable"><strong>v</strong><span>vektor bobot TF-IDF</span></div><div class="formula-variable"><strong>v<sub>norm</sub></strong><span>vektor setelah normalisasi</span></div><div class="formula-variable"><strong>i</strong><span>posisi fitur dalam vektor</span></div></div>
+  </div>
+  <div class="doc-subsection"><h3>C. Eksperimen penyeimbangan data</h3><p>Random Oversampling diuji hanya pada data training. Konfigurasi hasil utama tidak menggunakan ROS karena performanya lebih baik pada data anotasi yang digunakan. Data uji tidak diubah.</p>
+    <div class="math-block">\[
+      n_{\mathrm{target}}=\max(n_{\mathrm{negatif}},n_{\mathrm{positif}})
+    \]</div>
+    <div class="formula-variables"><div class="formula-variable"><strong>n<sub>target</sub></strong><span>jumlah target data untuk satu kelas</span></div><div class="formula-variable"><strong>n<sub>negatif</sub></strong><span>jumlah data berlabel negatif</span></div><div class="formula-variable"><strong>n<sub>positif</sub></strong><span>jumlah data berlabel positif</span></div></div>
+    <p class="doc-small">Sampel kelas yang jumlahnya lebih kecil dipilih ulang secara acak hingga mencapai \(n_{\mathrm{target}}\)<br>Data testing tidak diubah</p>
+  </div>
+  <div class="doc-subsection"><h3>D. Multinomial Naive Bayes</h3><p>Model menghitung kemungkinan sebuah kata muncul pada setiap kelas sentimen. Semua kemungkinan digabungkan, lalu kelas dengan skor terbesar dipilih sebagai prediksi. Nilai disimpan dalam logaritma agar perhitungan stabil.</p>
+    <div class="formula-pair">
+      <div class="math-block">\[
+        \log P(c)=\ln\left(\frac{N_c}{N}\right)
+      \]</div>
+      <div class="math-block">\[
+        P(w\mid c)=
+        \frac{\operatorname{count}(w,c)+\alpha}
+        {\sum_{v\in V}\operatorname{count}(v,c)+\alpha |V|}
+      \]</div>
+    </div>
+    <div class="formula-variables"><div class="formula-variable"><strong>c</strong><span>kelas sentimen</span></div><div class="formula-variable"><strong>N<sub>c</sub></strong><span>jumlah data pada kelas <em>c</em></span></div><div class="formula-variable"><strong>N</strong><span>jumlah seluruh data latih</span></div><div class="formula-variable"><strong>w</strong><span>kata atau fitur</span></div><div class="formula-variable"><strong>count(w,c)</strong><span>jumlah kata <em>w</em> pada kelas <em>c</em></span></div><div class="formula-variable"><strong>V</strong><span>kosakata model</span></div><div class="formula-variable"><strong>\(\alpha\)</strong><span>smoothing untuk mencegah peluang nol</span></div></div>
+    <p class="doc-small">Konfigurasi model utama: \(\alpha=0.1\), TF-IDF unigram-bigram, tanpa Random Oversampling.</p>
+    <div class="math-block">\[
+      \hat{c}=\arg\max_{c}
+      \left[\log P(c)+
+      \sum_{w\in d}\operatorname{tfidf}(w,d)\log P(w\mid c)\right]
+    \]</div>
+    <div class="formula-variables"><div class="formula-variable"><strong>\(\hat{c}\)</strong><span>kelas hasil prediksi</span></div><div class="formula-variable"><strong>d</strong><span>dokumen atau ulasan baru</span></div><div class="formula-variable"><strong>arg max</strong><span>memilih skor kelas paling besar</span></div></div>
+  </div>
 </section>
 
 <section class="doc-section" id="evaluasi">
-  <div class="doc-section-heading"><span class="doc-number">03</span><div><p class="eyebrow">processing/evaluation.py</p><h2>Evaluasi model</h2><p>Prediksi dibandingkan dengan label aktual pada data testing</p></div></div>
+  <div class="doc-section-heading"><span class="doc-number">03</span><div><p class="eyebrow">processing/evaluation.py</p><h2>Evaluasi model</h2><p>Model diuji menggunakan data yang tidak digunakan saat belajar. Prediksi model dibandingkan dengan label aktual untuk mengukur kinerjanya.</p></div></div>
   <div class="metric-formulas">
-    <div class="metric-card"><strong>Accuracy</strong><div class="math-block">\[\operatorname{Accuracy}=\frac{\sum_c TP_c}{N}\]</div></div>
-    <div class="metric-card"><strong>Precision</strong><div class="math-block">\[\operatorname{Precision}_c=\frac{TP_c}{TP_c+FP_c}\]</div></div>
-    <div class="metric-card"><strong>Recall</strong><div class="math-block">\[\operatorname{Recall}_c=\frac{TP_c}{TP_c+FN_c}\]</div></div>
-    <div class="metric-card"><strong>F1-score</strong><div class="math-block">\[F1_c=2\cdot\frac{P_cR_c}{P_c+R_c}\]</div></div>
+    <article class="metric-card"><strong>Accuracy</strong><p>Persentase seluruh prediksi yang benar.</p><div class="math-block">\[\operatorname{Accuracy}=\frac{\sum_c TP_c}{N}\]</div><div class="formula-variables"><div class="formula-variable"><strong>TP<sub>c</sub></strong><span>prediksi benar untuk kelas <em>c</em></span></div><div class="formula-variable"><strong>N</strong><span>jumlah seluruh data uji</span></div><div class="formula-variable"><strong>c</strong><span>kelas sentimen</span></div></div></article>
+    <article class="metric-card"><strong>Precision</strong><p>Dari semua prediksi suatu kelas, berapa yang benar.</p><div class="math-block">\[\operatorname{Precision}_c=\frac{TP_c}{TP_c+FP_c}\]</div><div class="formula-variables"><div class="formula-variable"><strong>TP<sub>c</sub></strong><span>data kelas <em>c</em> yang benar diprediksi</span></div><div class="formula-variable"><strong>FP<sub>c</sub></strong><span>data kelas lain yang keliru dianggap kelas <em>c</em></span></div></div></article>
+    <article class="metric-card"><strong>Recall</strong><p>Dari semua data yang benar-benar termasuk suatu kelas, berapa yang berhasil ditemukan.</p><div class="math-block">\[\operatorname{Recall}_c=\frac{TP_c}{TP_c+FN_c}\]</div><div class="formula-variables"><div class="formula-variable"><strong>TP<sub>c</sub></strong><span>data kelas <em>c</em> yang berhasil ditemukan</span></div><div class="formula-variable"><strong>FN<sub>c</sub></strong><span>data kelas <em>c</em> yang terlewat atau salah diprediksi</span></div></div></article>
+    <article class="metric-card"><strong>F1-score</strong><p>Nilai keseimbangan antara precision dan recall.</p><div class="math-block">\[F1_c=2\cdot\frac{P_cR_c}{P_c+R_c}\]</div><div class="formula-variables"><div class="formula-variable"><strong>P<sub>c</sub></strong><span>precision kelas <em>c</em></span></div><div class="formula-variable"><strong>R<sub>c</sub></strong><span>recall kelas <em>c</em></span></div></div></article>
   </div>
+  <div class="doc-callout"><strong>Cara membaca tabel hasil pengujian</strong><p>Baris menunjukkan jawaban pemeriksa, sedangkan kolom menunjukkan jawaban sistem. Angka pada garis diagonal berarti sistem menjawab dengan benar. Angka di luar garis itu menunjukkan jawaban yang tertukar, misalnya keluhan yang dianggap sebagai pujian.</p><div class="confusion-guide"><div class="confusion-item"><strong>Benar</strong><span>Jawaban sistem sama dengan label pemeriksa.</span></div><div class="confusion-item"><strong>Salah positif</strong><span>Keluhan keliru dianggap sebagai pujian.</span></div><div class="confusion-item"><strong>Salah negatif</strong><span>Pujian keliru dianggap sebagai keluhan.</span></div></div></div>
   <div class="doc-callout"><strong>File yang menjalankan setiap tahap</strong><p><code>preprocessing.py</code> menerapkan preprocessing ke dataset<br><code>classification.py</code> mengatur urutan klasifikasi<br><code>naive_bayes.py</code> berisi perhitungan TF-IDF, oversampling, dan MNB<br><code>evaluation.py</code> menghitung metrik<br><code>pipeline.py</code> hanya memanggil semuanya secara berurutan</p></div>
 </section>
 <script>

@@ -7,26 +7,52 @@ import time
 import uuid
 from pathlib import Path
 
-_STATE_PATH = Path(__file__).resolve().parents[1] / 'uploads_tmp' / '.pipeline_state.json'
+_BASE = Path(__file__).resolve().parents[1]
+_IS_SERVERLESS = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+
+if _IS_SERVERLESS or not os.access(_BASE, os.W_OK):
+    import tempfile
+    _STATE_DIR = Path(tempfile.gettempdir()) / 'nafinder_uploads'
+else:
+    _STATE_DIR = _BASE / 'uploads_tmp'
+
+try:
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
+
+_STATE_PATH = _STATE_DIR / '.pipeline_state.json'
+_BUNDLED_STATE = _BASE / 'uploads_tmp' / '.pipeline_state.json'
 _LOCK = threading.RLock()
 
 
 def read_state():
     with _LOCK:
-        try:
-            state = json.loads(_STATE_PATH.read_text(encoding='utf-8'))
-        except (OSError, ValueError):
+        state = None
+        for path_to_try in (_STATE_PATH, _BUNDLED_STATE):
+            if path_to_try.is_file():
+                try:
+                    state = json.loads(path_to_try.read_text(encoding='utf-8'))
+                    break
+                except (OSError, ValueError):
+                    pass
+
+        if not state:
             state = {
                 'dataset_name': None, 'preprocessed': False, 'classified': False,
                 'dataset_size_bytes': None,
                 'status': 'belum_dimulai', 'stage': None, 'percent': 0,
                 'message': 'Unggah dataset untuk memulai', 'elapsed_seconds': 0,
+                'preprocessing_seconds': None, 'classification_seconds': None,
                 'started_at': None, 'finished_at': None, 'error': None,
                 'checkpoint': 0, 'checkpoint_title': '', 'checkpoint_action': '',
                 'checkpoint_result': '',
                 'class_checkpoint': 0, 'class_checkpoint_title': '',
                 'class_checkpoint_action': '', 'class_checkpoint_result': ''
             }
+
+        state.setdefault('preprocessing_seconds', None)
+        state.setdefault('classification_seconds', None)
 
         # Sinkronisasi otomatis dataset_name jika kosong tapi ada file di repositori
         if not state.get('dataset_name'):
@@ -97,6 +123,8 @@ def reset_state(dataset_name=None, dataset_size_bytes=None):
         percent=0,
         message='Dataset siap diproses' if dataset_name else 'Unggah dataset untuk memulai',
         elapsed_seconds=0,
+        preprocessing_seconds=None,
+        classification_seconds=None,
         started_at=None,
         finished_at=None,
         error=None,
@@ -148,6 +176,8 @@ def unlock_pipeline() -> dict:
         finished_at=time.time(),
         started_at=None,
         elapsed_seconds=0,
+        preprocessing_seconds=None,
+        classification_seconds=None,
         percent=0,
         stage=None,
         checkpoint=0,
@@ -185,15 +215,18 @@ def run_background(stage, function, *args, **kwargs):
                 status='berjalan',
                 stage=stage,
                 message='Memulai komputasi...',
-                elapsed_seconds=0
+                elapsed_seconds=0,
+                **{f'{stage}_seconds': None}
             )
             function(*args, **kwargs)
             s = read_state()
+            duration = round(time.time() - start, 1)
             write_state(
                 status='selesai',
                 percent=100,
                 message='Tahap selesai',
-                elapsed_seconds=round(time.time() - start, 1),
+                elapsed_seconds=duration,
+                **{f'{stage}_seconds': duration},
                 finished_at=time.time(),
                 preprocessed=True if stage == 'preprocessing' else s.get('preprocessed', False),
                 classified=True if stage == 'classification' else s.get('classified', False)
@@ -201,11 +234,13 @@ def run_background(stage, function, *args, **kwargs):
         except Exception as exc:
             import traceback
             traceback.print_exc()
+            duration = round(time.time() - start, 1)
             write_state(
                 status='gagal',
                 message='Tahap gagal dijalankan',
                 error=str(exc),
-                elapsed_seconds=round(time.time() - start, 1),
+                elapsed_seconds=duration,
+                **{f'{stage}_seconds': duration},
                 finished_at=time.time()
             )
 
@@ -223,4 +258,3 @@ def progress_callback(stage_name, current, total, detail=''):
         message=f'{stage_name}: {current:,}/{total:,}' + (f' — {detail}' if detail else ''),
         elapsed_seconds=round(time.time() - start, 1)
     )
-

@@ -1,0 +1,156 @@
+"""
+Skrip Migrasi Data Otomatis: MySQL (Laragon) -> PostgreSQL (Supabase)
+Fadhli Ilham Nafi'an Yuswono (23.18.001) - Nafinder
+
+Cara menjalankan:
+  python migrate_to_supabase.py "postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?sslmode=require"
+atau cukup:
+  python migrate_to_supabase.py  (jika DATABASE_URL sudah diatur di environment)
+"""
+
+from __future__ import annotations
+import json
+import os
+import sys
+from pathlib import Path
+from sqlalchemy import create_engine, text
+
+# Pastikan path modul program terbaca
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+
+def get_target_db_url() -> str:
+    """Ambil URL Supabase dari argumen CLI atau environment variable."""
+    if len(sys.argv) > 1 and sys.argv[1].startswith(("postgres://", "postgresql://")):
+        url = sys.argv[1].strip()
+    else:
+        url = os.getenv("DATABASE_URL", "").strip()
+
+    if not url:
+        print("\n[!] Error: Masukkan DATABASE_URL Supabase.")
+        print("Contoh:")
+        print('  python migrate_to_supabase.py "postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?sslmode=require"\n')
+        sys.exit(1)
+
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    return url
+
+
+def run_migration():
+    supabase_url = get_target_db_url()
+    mysql_url = "mysql+pymysql://root:@localhost:3306/nafinder?charset=utf8mb4"
+
+    print("==================================================================")
+    print("       MIGRASI DATA NAFINDER: MYSQL (LARAGON) -> SUPABASE        ")
+    print("==================================================================")
+    print(f"[*] Sumber (MySQL)   : localhost:3306/nafinder")
+    print(f"[*] Tujuan (Supabase): {supabase_url.split('@')[-1]}")
+    print()
+
+    # 1. Koneksi
+    print("[1/4] Menguji koneksi database...")
+    mysql_engine = create_engine(mysql_url)
+    try:
+        with mysql_engine.connect() as m_conn:
+            m_ver = m_conn.execute(text("SELECT VERSION()")).scalar()
+            print(f"  [+] Terhubung ke MySQL {m_ver}")
+    except Exception as e:
+        print(f"  [-] Gagal terhubung ke MySQL: {e}")
+        print("      Pastikan Laragon sudah berjalan!")
+        sys.exit(1)
+
+    try:
+        supabase_engine = create_engine(supabase_url, pool_pre_ping=True)
+        with supabase_engine.connect() as s_conn:
+            s_ver = s_conn.execute(text("SELECT VERSION()")).scalar()
+            print(f"  [+] Terhubung ke Supabase PostgreSQL: {s_ver.split(',')[0]}")
+    except Exception as e:
+        print(f"  [-] Gagal terhubung ke Supabase: {e}")
+        sys.exit(1)
+
+    # 2. Buat skema tabel
+    print("\n[2/4] Menyiapkan skema tabel di Supabase...")
+    schema_path = BASE_DIR / "schema_supabase.sql"
+    if not schema_path.is_file():
+        print(f"  [-] Berkas {schema_path} tidak ditemukan!")
+        sys.exit(1)
+
+    schema_sql = schema_path.read_text(encoding="utf-8")
+    # Jalankan DDL per statement
+    with supabase_engine.begin() as s_conn:
+        statements = [stmt.strip() for stmt in schema_sql.split(";") if stmt.strip() and not stmt.strip().startswith("--")]
+        for stmt in statements:
+            s_conn.execute(text(stmt))
+    print("  [+] Seluruh tabel dan indeks berhasil dibuat di Supabase!")
+
+    # 3. Salin data per tabel
+    print("\n[3/4] Menyalin data antar tabel...")
+    tables = [
+        "users", "kafe", "ulasan", "label_sentimen", "skor_aspek",
+        "evaluasi_model", "riwayat_upload", "validasi_v4", "validasi_v4_aspek",
+        "validasi_v5", "validasi_v5_aspek"
+    ]
+
+    for table in tables:
+        with mysql_engine.connect() as m_conn:
+            rows = m_conn.execute(text(f"SELECT * FROM `{table}`")).mappings().all()
+            if not rows:
+                print(f"  - Tabel {table}: 0 baris (dilewati)")
+                continue
+
+            cols = list(rows[0].keys())
+
+        # Konversi tipe data khusus (JSON, boolean, None)
+        converted_rows = []
+        for r in rows:
+            row_dict = dict(r)
+            for k, v in row_dict.items():
+                if isinstance(v, (dict, list)):
+                    row_dict[k] = json.dumps(v)
+            converted_rows.append(row_dict)
+
+        with supabase_engine.begin() as s_conn:
+            col_names = ", ".join([f'"{c}"' for c in cols])
+            param_names = ", ".join([f":{c}" for c in cols])
+            insert_stmt = text(f'INSERT INTO {table} ({col_names}) VALUES ({param_names})')
+
+            batch_size = 500
+            for i in range(0, len(converted_rows), batch_size):
+                batch = converted_rows[i:i + batch_size]
+                s_conn.execute(insert_stmt, batch)
+
+        print(f"  [+] Tabel {table}: Berhasil menyalin {len(rows):,} baris")
+
+    # 4. Sinkronisasi sequence counter
+    print("\n[4/4] Memperbarui counter sequence ID auto-increment...")
+    seqs = [
+        ("users", "users_id_seq"),
+        ("kafe", "kafe_id_seq"),
+        ("ulasan", "ulasan_id_seq"),
+        ("label_sentimen", "label_sentimen_id_seq"),
+        ("evaluasi_model", "evaluasi_model_id_seq"),
+        ("riwayat_upload", "riwayat_upload_id_seq"),
+        ("validasi_v4", "validasi_v4_id_seq"),
+        ("validasi_v4_aspek", "validasi_v4_aspek_id_seq"),
+        ("validasi_v5", "validasi_v5_id_seq"),
+        ("validasi_v5_aspek", "validasi_v5_aspek_id_seq"),
+    ]
+    with supabase_engine.begin() as s_conn:
+        for tbl, seq in seqs:
+            s_conn.execute(text(f"SELECT setval('{seq}', COALESCE((SELECT MAX(id) FROM {tbl}), 1))"))
+
+    print("  [+] Sequence ID tersinkronisasi.")
+    print("\n==================================================================")
+    print("            MIGRASI DATA KE SUPABASE SELESAI SUKSES!              ")
+    print("==================================================================")
+    print("Aplikasi Nafinder Anda sekarang dapat langsung menggunakan Supabase.")
+    print("Cukup setel DATABASE_URL di file .env atau di dashboard Vercel.")
+
+
+if __name__ == "__main__":
+    run_migration()

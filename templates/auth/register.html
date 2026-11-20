@@ -1,20 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Register — Nafinder{% endblock %}
+{% block title %}Buat Akun — Sistem Analisis Ulasan Kafe{% endblock %}
 {% block content %}
-<div class="auth-card"><div class="auth-brand"><span class="brand-mark">N</span><span>Nafinder</span></div>
-  <p class="eyebrow">Mulai mencatat pilihan</p>  <h1>Buat akun Nafinder</h1>
+<div class="auth-card">
+  <div class="auth-brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M3.5 17V7l8 10V7"/><circle cx="17" cy="14" r="4"/><path d="m20 17 2 2"/></svg>
+    </span>
+  </div>
+  <p class="eyebrow">Daftar untuk menggunakan sistem</p>
   <form method="post">
-    <label>Username
-      <input type="text" name="username" required autofocus>
+    <label for="register-username">Nama pengguna
+      <input id="register-username" type="text" name="username" autocomplete="username" required autofocus>
     </label>
-    <label>Email
-      <input type="email" name="email" required>
+    <label for="register-email">Alamat email
+      <input id="register-email" type="email" name="email" autocomplete="email" required>
     </label>
-    <label>Password
-      <input type="password" name="password" required minlength="6">
+    <label for="register-password">Kata sandi (minimal 6 karakter)
+      <span class="password-field">
+        <input id="register-password" type="password" name="password" required minlength="6" autocomplete="new-password">
+        <button class="password-toggle" type="button" aria-label="Tampilkan password" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </span>
     </label>
     <button type="submit">Daftar</button>
   </form>
-  <p class="muted">Sudah punya akun? <a href="{{ url_for('auth.login') }}">Login</a></p>
+  <p class="muted">Sudah punya akun? <a href="{{ url_for('auth.login') }}">Masuk</a></p>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelectorAll('.password-toggle').forEach(function (toggle) {
+    toggle.addEventListener('click', function () {
+      const input = toggle.parentElement.querySelector('input');
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      toggle.setAttribute('aria-label', visible ? 'Sembunyikan password' : 'Tampilkan password');
+      toggle.setAttribute('aria-pressed', String(visible));
+    });
+  });
+</script>
 {% endblock %}

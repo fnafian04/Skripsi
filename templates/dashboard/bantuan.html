@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Bantuan — Sistem Analisis Ulasan Kafe{% endblock %}
+{% block content %}
+<header class="page-intro">
+  <p class="eyebrow">Panduan penggunaan</p>
+  <h1>Mulai menggunakan sistem</h1>
+  <p class="lede">Pilih kafe, lihat ringkasan pengalaman pelanggan, atau coba analisis sebuah ulasan. Tidak perlu pengetahuan teknis.</p>
+</header>
+
+<section class="help-grid">
+  <article class="help-card">
+    <span class="help-number">1</span>
+    <h2>Cari kafe sesuai kebutuhan</h2>
+    <p>Buka <strong>Cari kafe</strong>, lalu pilih fasilitas yang Anda perlukan, seperti Wi-Fi, stopkontak, meja, atau kafe yang buka 24 jam.</p>
+  </article>
+  <article class="help-card">
+    <span class="help-number">2</span>
+    <h2>Bandingkan pengalaman pelanggan</h2>
+    <p>Lihat rating, fasilitas, dan hal-hal yang sering dipuji atau dikeluhkan pelanggan, misalnya makanan, pelayanan, harga, suasana, dan kebersihan.</p>
+  </article>
+  <article class="help-card">
+    <span class="help-number">3</span>
+    <h2>Coba analisis sebuah ulasan</h2>
+    <p>Buka <strong>Coba analisis ulasan</strong> dan masukkan teks. Sistem akan menunjukkan topik yang dibahas serta apakah kalimatnya terdengar memuji atau mengeluh.</p>
+  </article>
+</section>
+
+<section class="doc-callout help-callout">
+  <strong>Apa arti pendapat positif dan negatif?</strong>
+  <p><strong>Positif</strong> berarti pelanggan memuji atau merasa puas. <strong>Negatif</strong> berarti pelanggan mengeluhkan sesuatu. Contoh: “makanannya enak” adalah pujian untuk makanan, sedangkan “tempatnya sempit” adalah keluhan tentang suasana. Hasil sistem adalah perkiraan berdasarkan pola ulasan yang pernah dipelajari.</p>
+</section>
+
+<div class="dashboard-columns">
+  <a class="editorial-panel panel-dark text-link" href="{{ url_for('rekomendasi.index') }}">
+    <p class="eyebrow">Langsung mulai</p>
+    <h2>Cari kafe sekarang →</h2>
+  </a>
+  <a class="editorial-panel text-link" href="{{ url_for('hasil.index') }}">
+    <p class="eyebrow">Tes singkat</p>
+    <h2>Coba analisis ulasan →</h2>
+  </a>
+</div>
+{% endblock %}

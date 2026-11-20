@@ -4,12 +4,11 @@ from flask import (
     request, flash, jsonify
 )
 from werkzeug.utils import secure_filename
-from pathlib import Path
-
 from processing import dataset_workflow as wf
 from processing.workflow_state import is_process_active, read_state, run_background
 
 bp = Blueprint('dataset', __name__, url_prefix='/dataset')
+FIXED_DATASET = 'dataset_Nov_preprocessed.csv'
 
 
 def login_guard():
@@ -24,55 +23,60 @@ def index():
     if guard:
         return guard
 
-    if request.method == 'POST':
-        if is_process_active():
-            flash('Tidak dapat mengunggah saat proses sedang berjalan, tunggu sampai selesai', 'info')
-            return redirect(url_for('dataset.index'))
-
-        files = request.files.getlist('dataset')
-        if not files or all(not f.filename for f in files):
-            flash('Pilih setidaknya satu file CSV ulasan mentah', 'error')
-            return redirect(url_for('dataset.index'))
-
-        uploaded_count = 0
-        last_uploaded_name = None
-
-        for file in files:
-            if not file or not file.filename:
-                continue
-            if not file.filename.lower().endswith('.csv'):
-                flash(f"Berkas '{file.filename}' dilewati karena bukan format .csv", 'error')
-                continue
-
-            clean_name = secure_filename(file.filename) or 'dataset.csv'
-            try:
-                wf.save_dataset(file, original_name=clean_name, set_active=(uploaded_count == 0))
-                uploaded_count += 1
-                last_uploaded_name = clean_name
-            except Exception as e:
-                flash(f"Gagal menyimpan '{clean_name}': {e}", 'error')
-
-        if uploaded_count > 0:
-            flash(f"Berhasil mengunggah {uploaded_count} dataset ke repositori", 'success')
-            if last_uploaded_name:
-                flash(f"Dataset '{last_uploaded_name}' telah diaktifkan, Anda dapat langsung menjalankan preprocessing", 'info')
-
-        return redirect(url_for('dataset.index'))
+    current_state = read_state()
+    fixed_path = wf.get_dataset_path(FIXED_DATASET)
+    if fixed_path is None:
+        flash(f"Dataset final '{FIXED_DATASET}' tidak tersedia di penyimpanan aplikasi.", 'error')
+    elif not is_process_active():
+        active_name = current_state.get('dataset_name')
+        if not active_name or wf.get_dataset_path(active_name) is None:
+            wf.activate_dataset(FIXED_DATASET)
+            current_state = read_state()
 
     datasets = wf.list_datasets()
-    current_state = read_state()
-
-    # Jika state belum memiliki dataset_name tapi ada dataset di direktori, aktifkan yang pertama
-    if not current_state.get('dataset_name') and datasets:
-        wf.activate_dataset(datasets[0]['name'])
-        current_state = read_state()
-        datasets = wf.list_datasets()
+    datasets.sort(key=lambda item: item['name'] != FIXED_DATASET)
 
     return render_template(
         'dataset/index.html',
         state=current_state,
-        datasets=datasets
+        datasets=datasets,
+        fixed_dataset=FIXED_DATASET
     )
+
+
+@bp.post('/unggah')
+def upload():
+    guard = login_guard()
+    if guard:
+        return guard
+    if is_process_active():
+        flash('Tunggu sampai proses yang sedang berjalan selesai sebelum mengunggah dataset.', 'info')
+        return redirect(url_for('dataset.index'))
+
+    uploaded = request.files.get('dataset_file')
+    if uploaded is None or not uploaded.filename:
+        flash('Pilih file CSV terlebih dahulu.', 'error')
+        return redirect(url_for('dataset.index'))
+
+    filename = secure_filename(uploaded.filename)
+    if not filename.lower().endswith('.csv'):
+        flash('File yang diunggah harus berformat CSV.', 'error')
+        return redirect(url_for('dataset.index'))
+    if filename.lower() == FIXED_DATASET.lower():
+        flash('Nama tersebut milik dataset final. Gunakan nama lain agar dataset final tetap tersimpan.', 'error')
+        return redirect(url_for('dataset.index'))
+    if wf.get_dataset_path(filename) is not None:
+        flash(f"Dataset '{filename}' sudah ada. Ubah nama file lalu coba lagi.", 'error')
+        return redirect(url_for('dataset.index'))
+
+    try:
+        wf.save_dataset(uploaded, original_name=filename, set_active=True)
+    except (OSError, ValueError) as e:
+        flash(f'Gagal menambahkan dataset: {e}', 'error')
+        return redirect(url_for('dataset.index'))
+
+    flash(f"Dataset '{filename}' berhasil ditambahkan dan dipilih untuk uji coba.", 'success')
+    return redirect(url_for('dataset.index'))
 
 
 @bp.post('/aktifkan/<path:filename>')
@@ -88,7 +92,7 @@ def activate(filename):
     try:
         wf.activate_dataset(filename)
         flash(f"Dataset '{filename}' berhasil diaktifkan", 'success')
-    except Exception as e:
+    except (FileNotFoundError, OSError, ValueError) as e:
         flash(f"Gagal mengaktifkan dataset: {e}", 'error')
 
     return redirect(url_for('dataset.index'))
@@ -101,15 +105,12 @@ def preprocessing():
         return guard
 
     filename = request.form.get('filename')
-    if filename:
-        try:
-            wf.activate_dataset(filename)
-        except Exception as e:
-            flash(f"Gagal mengaktifkan dataset '{filename}': {e}", 'error')
-            return redirect(url_for('dataset.index'))
-
-    if not wf.dataset_aktif_path():
-        flash('Pilih atau unggah dataset terlebih dahulu', 'error')
+    active_name = read_state().get('dataset_name')
+    if not active_name or not wf.dataset_aktif_path():
+        flash('Belum ada dataset aktif. Pilih dataset yang tersedia terlebih dahulu.', 'error')
+        return redirect(url_for('dataset.index'))
+    if filename and filename != active_name:
+        flash('Dataset pada formulir berbeda dengan dataset aktif. Aktifkan dataset yang ingin diproses terlebih dahulu.', 'error')
         return redirect(url_for('dataset.index'))
 
     if not run_background('preprocessing', wf.run_preprocessing, None, session.get('user_id')):
@@ -125,6 +126,9 @@ def classification():
         return guard
 
     state = read_state()
+    if not state.get('dataset_name') or not wf.dataset_aktif_path():
+        flash('Belum ada dataset aktif. Pilih dataset yang tersedia terlebih dahulu.', 'error')
+        return redirect(url_for('dataset.index'))
     if not state.get('preprocessed'):
         flash('Klasifikasi belum bisa dijalankan, selesaikan preprocessing terlebih dahulu', 'error')
         return redirect(url_for('dataset.index'))
@@ -141,18 +145,7 @@ def delete(filename=None):
     guard = login_guard()
     if guard:
         return guard
-
-    if is_process_active():
-        flash('Tidak dapat menghapus dataset saat proses sedang berjalan, tunggu sampai selesai', 'info')
-        return redirect(url_for('dataset.index'))
-
-    target = filename or request.form.get('filename') or read_state().get('dataset_name')
-    if not target:
-        flash('Tidak ada dataset yang dipilih untuk dihapus', 'info')
-        return redirect(url_for('dataset.index'))
-
-    wf.delete_dataset(target)
-    flash(f"Dataset '{target}' berhasil dihapus dari repositori", 'success')
+    flash('Dataset final dikunci dan tidak dapat dihapus.', 'error')
     return redirect(url_for('dataset.index'))
 
 
@@ -161,13 +154,7 @@ def reset_database():
     guard = login_guard()
     if guard:
         return guard
-
-    if is_process_active():
-        flash('Tidak dapat mereset saat proses sedang berjalan', 'info')
-        return redirect(url_for('dataset.index'))
-
-    wf.clear_pipeline_database()
-    flash('Hasil ulasan dan evaluasi di database telah dibersihkan, berkas dataset mentah tetap tersimpan', 'success')
+    flash('Data hasil anotasi dikunci dan tidak dapat dibersihkan.', 'error')
     return redirect(url_for('dataset.index'))
 
 
@@ -200,4 +187,3 @@ def status():
         # Backward compatibility fields
         **state
     })
-

@@ -19,7 +19,10 @@ CREATE DATABASE IF NOT EXISTS nafinder
 USE nafinder;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS riwayat_upload, evaluasi_model, skor_aspek,
+DROP TABLE IF EXISTS validasi_label_aspek, validasi_label,
+                     validasi_v4_aspek, validasi_v4,
+                     validasi_v5_aspek, validasi_v5,
+                     riwayat_upload, evaluasi_model, skor_aspek,
                      label_sentimen, ulasan, kafe, users;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -163,85 +166,6 @@ CREATE TABLE riwayat_upload (
 --   PRIMARY KEY (kafe_id, nama),
 --   FOREIGN KEY (kafe_id) REFERENCES kafe (id) ON DELETE CASCADE
 -- );
-
--- 4b. VALIDASI_LABEL — checklist manual untuk sampel label, tanpa mengubah label asli
-CREATE TABLE validasi_label (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    label_id BIGINT UNSIGNED NOT NULL,
-    urutan INT UNSIGNED NOT NULL,
-    status VARCHAR(16) NULL,
-    aspek_koreksi VARCHAR(32) NULL,
-    sentimen_koreksi VARCHAR(16) NULL,
-    catatan VARCHAR(500) NULL,
-    user_id INT UNSIGNED NULL,
-    diperiksa_pada DATETIME NULL,
-    CONSTRAINT uq_validasi_label UNIQUE (label_id),
-    CONSTRAINT fk_validasi_label FOREIGN KEY (label_id)
-        REFERENCES label_sentimen(id) ON DELETE CASCADE,
-    CONSTRAINT fk_validasi_user FOREIGN KEY (user_id)
-        REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_validasi_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE validasi_label_aspek (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    validasi_id BIGINT UNSIGNED NOT NULL,
-    aspek ENUM('makanan_minuman','pelayanan','harga','suasana','fasilitas_wfc','kebersihan') NOT NULL,
-    CONSTRAINT uq_validasi_aspek UNIQUE (validasi_id, aspek),
-    CONSTRAINT fk_validasi_aspek FOREIGN KEY (validasi_id)
-        REFERENCES validasi_label(id) ON DELETE CASCADE,
-    INDEX idx_validasi_aspek (validasi_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE validasi_v4 (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    urutan INT UNSIGNED NOT NULL,
-    sub_kalimat VARCHAR(2048) NOT NULL,
-    teks_ulasan TEXT NOT NULL,
-    rating TINYINT UNSIGNED NULL,
-    aspek ENUM('makanan_minuman','pelayanan','harga','suasana','fasilitas_wfc','kebersihan') NOT NULL,
-    sentimen ENUM('positif','netral','negatif') NOT NULL,
-    status VARCHAR(16) NULL,
-    sentimen_koreksi VARCHAR(16) NULL,
-    catatan VARCHAR(500) NULL,
-    diperiksa_pada DATETIME NULL,
-    INDEX idx_validasi_v4_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE validasi_v4_aspek (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    validasi_id BIGINT UNSIGNED NOT NULL,
-    aspek ENUM('makanan_minuman','pelayanan','harga','suasana','fasilitas_wfc','kebersihan') NOT NULL,
-    CONSTRAINT uq_validasi_v4_aspek UNIQUE (validasi_id, aspek),
-    CONSTRAINT fk_validasi_v4_aspek FOREIGN KEY (validasi_id)
-        REFERENCES validasi_v4(id) ON DELETE CASCADE,
-    INDEX idx_validasi_v4_aspek (validasi_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE validasi_v5 (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    urutan INT UNSIGNED NOT NULL,
-    sub_kalimat VARCHAR(2048) NOT NULL,
-    teks_ulasan TEXT NOT NULL,
-    rating TINYINT UNSIGNED NULL,
-    aspek ENUM('makanan_minuman','pelayanan','harga','suasana','fasilitas_wfc','kebersihan') NOT NULL,
-    sentimen ENUM('positif','netral','negatif') NOT NULL,
-    status VARCHAR(16) NULL,
-    sentimen_koreksi VARCHAR(16) NULL,
-    catatan VARCHAR(500) NULL,
-    diperiksa_pada DATETIME NULL,
-    INDEX idx_validasi_v5_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE validasi_v5_aspek (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    validasi_id BIGINT UNSIGNED NOT NULL,
-    aspek ENUM('makanan_minuman','pelayanan','harga','suasana','fasilitas_wfc','kebersihan') NOT NULL,
-    CONSTRAINT uq_validasi_v5_aspek UNIQUE (validasi_id, aspek),
-    CONSTRAINT fk_validasi_v5_aspek FOREIGN KEY (validasi_id)
-        REFERENCES validasi_v5(id) ON DELETE CASCADE,
-    INDEX idx_validasi_v5_aspek (validasi_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4c. LABEL_SENTIMEN_OPTIMIZED — hasil eksperimen aturan preprocessing baru
 CREATE TABLE label_sentimen_optimized (

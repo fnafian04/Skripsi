@@ -66,13 +66,23 @@ def run_import(filepath: str, user_id: int | None = None, progress=None) -> dict
 
     # Materialize source rows and associated model labels, replacing prior dataset atomically.
     with engine.begin() as conn:
-        cafe_sql = text("""
-            INSERT INTO kafe (place_id,nama,alamat,rating_gmaps,jumlah_ulasan,buka_24jam,wifi,stopkontak,meja_kerja)
-            VALUES (:place_id,:nama,:alamat,:rating_gmaps,:jumlah_ulasan,:buka_24jam,:wifi,:stopkontak,:meja_kerja)
-            ON DUPLICATE KEY UPDATE nama=VALUES(nama), alamat=VALUES(alamat), rating_gmaps=VALUES(rating_gmaps),
-              jumlah_ulasan=VALUES(jumlah_ulasan), buka_24jam=VALUES(buka_24jam), wifi=VALUES(wifi),
-              stopkontak=VALUES(stopkontak), meja_kerja=VALUES(meja_kerja)
-        """)
+        if engine.dialect.name == 'postgresql':
+            cafe_sql = text("""
+                INSERT INTO kafe (place_id,nama,alamat,rating_gmaps,jumlah_ulasan,buka_24jam,wifi,stopkontak,meja_kerja)
+                VALUES (:place_id,:nama,:alamat,:rating_gmaps,:jumlah_ulasan,:buka_24jam,:wifi,:stopkontak,:meja_kerja)
+                ON CONFLICT (place_id) DO UPDATE SET
+                  nama=EXCLUDED.nama, alamat=EXCLUDED.alamat, rating_gmaps=EXCLUDED.rating_gmaps,
+                  jumlah_ulasan=EXCLUDED.jumlah_ulasan, buka_24jam=EXCLUDED.buka_24jam,
+                  wifi=EXCLUDED.wifi, stopkontak=EXCLUDED.stopkontak, meja_kerja=EXCLUDED.meja_kerja
+            """)
+        else:
+            cafe_sql = text("""
+                INSERT INTO kafe (place_id,nama,alamat,rating_gmaps,jumlah_ulasan,buka_24jam,wifi,stopkontak,meja_kerja)
+                VALUES (:place_id,:nama,:alamat,:rating_gmaps,:jumlah_ulasan,:buka_24jam,:wifi,:stopkontak,:meja_kerja)
+                ON DUPLICATE KEY UPDATE nama=VALUES(nama), alamat=VALUES(alamat), rating_gmaps=VALUES(rating_gmaps),
+                  jumlah_ulasan=VALUES(jumlah_ulasan), buka_24jam=VALUES(buka_24jam), wifi=VALUES(wifi),
+                  stopkontak=VALUES(stopkontak), meja_kerja=VALUES(meja_kerja)
+            """)
         conn.execute(cafe_sql, cafes)
         ids = conn.execute(text('SELECT id, place_id FROM kafe')).fetchall()
         cafe_ids = {p: int(i) for i,p in ids}
@@ -122,11 +132,13 @@ def run_import(filepath: str, user_id: int | None = None, progress=None) -> dict
             INSERT INTO skor_aspek (kafe_id,aspek,jumlah_positif,jumlah_netral,jumlah_negatif,
               persen_positif,persen_negatif,label_kekuatan,label_kelemahan)
             SELECT kafe_id,aspek,
-              SUM(sentimen='positif'), SUM(sentimen='netral'), SUM(sentimen='negatif'),
-              ROUND(100.0*SUM(sentimen='positif')/COUNT(*),2),
-              ROUND(100.0*SUM(sentimen='negatif')/COUNT(*),2),
-              (100.0*SUM(sentimen='positif')/COUNT(*)>=60),
-              (100.0*SUM(sentimen='negatif')/COUNT(*)>=30)
+              SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END),
+              SUM(CASE WHEN sentimen='netral' THEN 1 ELSE 0 END),
+              SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END),
+              ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2),
+              ROUND(100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*), 2),
+              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*)) >= 60 THEN TRUE ELSE FALSE END,
+              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*)) >= 30 THEN TRUE ELSE FALSE END
             FROM label_sentimen GROUP BY kafe_id,aspek
         """))
 
@@ -159,4 +171,4 @@ def run_import(filepath: str, user_id: int | None = None, progress=None) -> dict
 
 
 if __name__ == '__main__':
-    run_import(os.path.join('uploads_tmp','ulasan_wfc_final.csv'))
+    run_import(os.path.join('uploads_tmp','datasets','dataset_semprog.csv'))
