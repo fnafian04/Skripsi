@@ -47,12 +47,20 @@ def create_app_engine():
     is_postgres = db_url.startswith("postgresql")
     is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 
-    if is_serverless:
-        # Lingkungan Serverless Vercel: gunakan NullPool agar koneksi segera ditutup
+    if is_serverless and is_postgres:
+        # Lingkungan Serverless Vercel: gunakan pool kecil yang dapat dipakai ulang selama container hangat
+        return create_engine(
+            db_url,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            pool_size=2,
+            max_overflow=3,
+        )
+    elif is_serverless:
         return create_engine(
             db_url,
             poolclass=NullPool,
-            pool_pre_ping=True
+            pool_pre_ping=True,
         )
     elif is_postgres:
         return create_engine(

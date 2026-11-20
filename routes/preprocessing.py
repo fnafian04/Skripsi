@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 import pickle
 import threading
+import time
 import pandas as pd
 from flask import Blueprint, render_template, session, redirect, url_for, request
 from sqlalchemy import func, or_
@@ -18,8 +19,26 @@ bp = Blueprint("preprocessing", __name__, url_prefix="/preprocessing")
 PER_PAGE = 15
 _DATA_CACHE: dict[str, dict] = {}
 _CACHE_LOCK = threading.Lock()
+_DB_COUNT_TTL = 60.0
+_DB_COUNT_CACHE: dict = {"key": None, "ts": 0.0, "ulasan": 0, "label": 0}
 _PRED_MODEL = None
 _PRED_VECTORIZER = None
+
+
+def _get_db_counts(state_key) -> tuple[int, int]:
+    now = time.monotonic()
+    with _CACHE_LOCK:
+        if _DB_COUNT_CACHE["key"] == state_key and (now - _DB_COUNT_CACHE["ts"]) < _DB_COUNT_TTL:
+            return _DB_COUNT_CACHE["ulasan"], _DB_COUNT_CACHE["label"]
+    db = SessionLocal()
+    try:
+        u_cnt = int(db.query(func.count(Ulasan.id)).scalar() or 0)
+        l_cnt = int(db.query(func.count(LabelSentimen.id)).scalar() or 0)
+    finally:
+        db.close()
+    with _CACHE_LOCK:
+        _DB_COUNT_CACHE.update({"key": state_key, "ts": time.monotonic(), "ulasan": u_cnt, "label": l_cnt})
+    return u_cnt, l_cnt
 
 
 def _get_cached_csv(path) -> pd.DataFrame | None:
@@ -142,7 +161,10 @@ def index():
                 cache_path = candidate
                 break
 
+    state_key = (active_name, state.get("run_id"), state.get("finished_at"))
     labels_df = _get_cached_labels(cache_path)
+    ulasan_valid_cnt = 0
+    label_cnt = 0
     if labels_df is not None:
         if summary is None:
             summary = {"ulasan_awal": 0, "ulasan_valid": 0, "nama_dataset": active_name or cache_path.name}
@@ -161,25 +183,20 @@ def index():
             "fasilitas_wfc", "harga", "kebersihan",
             "makanan_minuman", "pelayanan", "suasana",
         ]
-        db = SessionLocal()
-        try:
-            ulasan_valid_cnt = db.query(func.count(Ulasan.id)).scalar() or 0
-            label_cnt = db.query(func.count(LabelSentimen.id)).scalar() or 0
-            if label_cnt > 0 or ulasan_valid_cnt > 0:
-                ds_name = active_name or "dataset_semprog.csv"
-                reg_meta = wf._read_registry().get(ds_name, {})
-                raw_total_est = int(reg_meta.get("row_count") or 0)
-                if not raw_total_est:
-                    raw_total_est = 109778 if ds_name == "dataset_semprog.csv" else ulasan_valid_cnt
-                if summary is None:
-                    summary = {
-                        "ulasan_awal": raw_total_est,
-                        "ulasan_valid": ulasan_valid_cnt,
-                        "nama_dataset": ds_name,
-                    }
-                summary.setdefault("label", label_cnt)
-        finally:
-            db.close()
+        ulasan_valid_cnt, label_cnt = _get_db_counts(state_key)
+        if label_cnt > 0 or ulasan_valid_cnt > 0:
+            ds_name = active_name or "dataset_semprog.csv"
+            reg_meta = wf._read_registry().get(ds_name, {})
+            raw_total_est = int(reg_meta.get("row_count") or 0)
+            if not raw_total_est:
+                raw_total_est = 109778 if ds_name == "dataset_semprog.csv" else ulasan_valid_cnt
+            if summary is None:
+                summary = {
+                    "ulasan_awal": raw_total_est,
+                    "ulasan_valid": ulasan_valid_cnt,
+                    "nama_dataset": ds_name,
+                }
+            summary.setdefault("label", label_cnt)
 
     if tab == "raw" and raw_df is not None:
         view_df = raw_df
@@ -209,13 +226,17 @@ def index():
         page_items = _page_window(page, total_pages)
 
     elif tab == "raw" and raw_df is None:
+        if ulasan_valid_cnt == 0 and label_cnt == 0:
+            ulasan_valid_cnt, label_cnt = _get_db_counts(state_key)
         db = SessionLocal()
         try:
             q = db.query(Ulasan, Kafe.nama).join(Kafe, Ulasan.kafe_id == Kafe.id)
             if search_q:
                 like_q = f"%{search_q}%"
                 q = q.filter(or_(Kafe.nama.ilike(like_q), Ulasan.teks.ilike(like_q)))
-            total_rows = q.count()
+                total_rows = q.count()
+            else:
+                total_rows = ulasan_valid_cnt
             total_pages = max(1, math.ceil(total_rows / PER_PAGE))
             page = min(page, total_pages)
             start = (page - 1) * PER_PAGE
@@ -288,6 +309,7 @@ def index():
                 .join(Ulasan, LabelSentimen.ulasan_id == Ulasan.id)
                 .join(Kafe, LabelSentimen.kafe_id == Kafe.id)
             )
+            has_filter = bool(filter_aspek or filter_sentimen or search_q)
             if filter_aspek:
                 q = q.filter(LabelSentimen.aspek == filter_aspek)
             if filter_sentimen:
@@ -301,7 +323,7 @@ def index():
                         Ulasan.teks_preprocessed.ilike(like_q),
                     )
                 )
-            total_rows = q.count()
+            total_rows = q.count() if has_filter else label_cnt
             total_pages = max(1, math.ceil(total_rows / PER_PAGE))
             page = min(page, total_pages)
             start = (page - 1) * PER_PAGE
