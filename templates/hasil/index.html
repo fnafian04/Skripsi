@@ -237,8 +237,8 @@
     let metricChart = null;
     function renderMetricChart() {
       const isDark = document.documentElement.dataset.theme === 'dark';
-      const textColor = isDark ? '#b9c7da' : '#4a5568';
-      const gridColor = isDark ? '#2d3d56' : '#e6dfd3';
+      const textColor = isDark ? '#d0e3ff' : '#4a5568';
+      const gridColor = isDark ? '#233354' : '#e6dfd3';
       if (metricChart) metricChart.destroy();
       metricChart = new ApexCharts(chartEl, {
         series: [
