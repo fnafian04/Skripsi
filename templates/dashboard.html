@@ -3,8 +3,7 @@
 {% block content %}
 <header class="page-intro">
   <p class="eyebrow">Gambaran umum penelitian</p>
-  <h1>Ringkasan</h1>
-  <p class="lede">Selamat datang kembali, <strong>{{ session.get('username', '') }}</strong>. Pantau cakupan data kafe WFC Kota Malang, performa model Naive Bayes, serta peta kekuatan sentimen enam aspek.</p>
+  <p class="lede">Pantau cakupan data kafe WFC Kota Malang, performa model Naive Bayes, serta peta kekuatan sentimen enam aspek.</p>
 </header>
 
 <div class="stat-grid">
@@ -184,9 +183,12 @@
 
   let barChart = null;
   let donutChart = null;
+  let lastIsMobile = window.innerWidth < 520;
 
   function renderCharts() {
     const isDark = document.documentElement.dataset.theme === 'dark';
+    const isMobile = window.innerWidth < 520;
+    lastIsMobile = isMobile;
     const textColor = isDark ? '#cbd5e1' : '#334155';
     const gridColor = isDark ? '#2d3d56' : '#e8e2d7';
     const ringBorder = isDark ? '#18263d' : '#ffffff';
@@ -259,7 +261,7 @@
           {
             name: 'Pujian Aspek',
             type: 'pie',
-            radius: ['38%', '64%'],
+            radius: isMobile ? ['30%', '50%'] : ['38%', '64%'],
             center: ['50%', '56%'],
             avoidLabelOverlap: true,
             itemStyle: {
@@ -273,7 +275,7 @@
               },
               rich: {
                 lbl: {
-                  fontSize: 11.5,
+                  fontSize: isMobile ? 10 : 11.5,
                   fontWeight: 700,
                   color: 'inherit'
                 }
@@ -281,8 +283,8 @@
             },
             labelLine: {
               show: true,
-              length: 14,
-              length2: 18,
+              length: isMobile ? 8 : 14,
+              length2: isMobile ? 10 : 18,
               smooth: 0.15
             },
             data: stats.map(function (s, idx) {
@@ -303,6 +305,11 @@
 
   renderCharts();
   window.addEventListener('resize', function () {
+    const isMobileNow = window.innerWidth < 520;
+    if (isMobileNow !== lastIsMobile) {
+      renderCharts();
+      return;
+    }
     if (barChart) barChart.resize();
     if (donutChart) donutChart.resize();
   });

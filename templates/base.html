@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Nafinder — Sistem Rekomendasi Kafe WFC{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261120-sinta-v2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261120-sinta-v3') }}">
 </head>
 <body>
   {% if session.get('user_id') %}
@@ -13,7 +13,7 @@
   </button>
   <aside class="sidebar">
     <div class="sidebar-head">
-      <a class="brand" href="{{ url_for('dashboard.index') }}" aria-label="Beranda Nafinder">
+      <a class="brand" href="{{ url_for('dashboard.bantuan') }}" aria-label="Beranda Nafinder">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M3.5 17V7l8 10V7"/><circle cx="17" cy="14" r="4"/><path d="m20 17 2 2"/></svg>
         </span>
@@ -111,7 +111,7 @@
       sidebarLauncher.setAttribute('aria-label', collapsed ? 'Buka menu' : 'Tutup menu');
       sidebarLauncher.setAttribute('title', collapsed ? 'Buka menu' : 'Tutup menu');
     };
-    const defaultCollapsed = window.innerWidth <= 850 ? savedSidebar !== 'expanded' : savedSidebar === 'collapsed';
+    const defaultCollapsed = window.innerWidth <= 960 ? savedSidebar !== 'expanded' : savedSidebar === 'collapsed';
     setSidebar(defaultCollapsed);
     sidebarLauncher.addEventListener('click', function () {
       const collapsed = root.dataset.sidebar === 'expanded';
@@ -119,13 +119,13 @@
       setSidebar(collapsed);
     });
     document.addEventListener('click', function (event) {
-      if (window.innerWidth <= 850 && root.dataset.sidebar === 'expanded' && !sidebar.contains(event.target) && !sidebarLauncher.contains(event.target)) {
+      if (window.innerWidth <= 960 && root.dataset.sidebar === 'expanded' && !sidebar.contains(event.target) && !sidebarLauncher.contains(event.target)) {
         localStorage.setItem('nafinder-sidebar', 'collapsed');
         setSidebar(true);
       }
     });
     document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && window.innerWidth <= 850 && root.dataset.sidebar === 'expanded') {
+      if (event.key === 'Escape' && window.innerWidth <= 960 && root.dataset.sidebar === 'expanded') {
         localStorage.setItem('nafinder-sidebar', 'collapsed');
         setSidebar(true);
       }

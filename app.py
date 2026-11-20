@@ -18,7 +18,7 @@ def create_app():
 
     @app.route('/')
     def root():
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard.bantuan'))
     return app
 
 if __name__ == '__main__':
