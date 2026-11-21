@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Nafinder — Sistem Rekomendasi Kafe WFC{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261120-sinta-v7') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261121-clean-v8') }}">
   <script>
     (function () {
       var collapsed = window.innerWidth <= 960 || localStorage.getItem('nafinder-sidebar') === 'collapsed';
@@ -57,7 +57,7 @@
       </a>
     </nav>
     <div class="sidebar-rule" style="margin: 1rem .55rem .9rem;"></div>
-    <p class="sidebar-label">Data & Metode Informatika</p>
+    <p class="sidebar-label">Data & Metode</p>
     <nav class="links" aria-label="Navigasi teknis">
       <a class="{% if request.endpoint and request.endpoint.startswith('dataset.') %}is-active{% endif %}" href="{{ url_for('dataset.index') }}">
         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>

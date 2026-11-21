@@ -59,7 +59,7 @@
 {% set total_all = aspek_stats|sum(attribute='total') %}
 {% set total_pos = aspek_stats|sum(attribute='positif') %}
 {% set total_neg = aspek_stats|sum(attribute='negatif') %}
-<section class="sinta-analytics-grid" aria-label="Visualisasi analitik sentimen bergaya SINTA">
+<section class="sinta-analytics-grid" aria-label="Visualisasi analitik sentimen enam aspek">
   <!-- Diagram 1: Bar Chart Sentimen Positif vs Negatif per Aspek -->
   <article class="sinta-chart-card">
     <div class="sinta-card-header">
@@ -88,7 +88,7 @@
     <div class="sinta-card-header">
       <div>
         <p class="eyebrow">Peta Kekuatan Kafe WFC</p>
-        <h2>Proporsi Pujian 6 Aspek (SINTA Style)</h2>
+        <h2>Proporsi Pujian 6 Aspek</h2>
       </div>
       <span class="sinta-pill sinta-pill-matcha">{{ '%.1f'|format(total_pos / total_all * 100) }}% Positif</span>
     </div>

@@ -4769,3 +4769,7 @@ html:not([data-sidebar="collapsed"]) .sidebar {
     background: rgba(217, 107, 82, .28);
   }
 }
+
+.flash[hidden] {
+  display: none !important;
+}
