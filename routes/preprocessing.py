@@ -185,7 +185,7 @@ def index():
         ]
         ulasan_valid_cnt, label_cnt = _get_db_counts(state_key)
         if label_cnt > 0 or ulasan_valid_cnt > 0:
-            ds_name = active_name or "dataset_semprog.csv"
+            ds_name = active_name or "dataset_Nov_preprocessed.csv"
             reg_meta = wf._read_registry().get(ds_name, {})
             raw_total_est = int(reg_meta.get("row_count") or 0)
             if not raw_total_est:

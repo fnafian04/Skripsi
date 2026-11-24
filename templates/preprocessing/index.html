@@ -34,7 +34,7 @@
     <select name="aspek" class="excel-select" onchange="this.form.submit()">
       <option value="">Semua Aspek (6)</option>
       {% for a in aspek_options %}
-      <option value="{{ a }}" {% if filter_aspek == a %}selected{% endif %}>{{ a|replace('_', ' ')|title }}</option>
+      <option value="{{ a }}" {% if filter_aspek == a %}selected{% endif %}>{{ a|format_aspek }}</option>
       {% endfor %}
     </select>
     <select name="sentimen" class="excel-select" onchange="this.form.submit()">
@@ -80,7 +80,7 @@
             <td><strong>{{ row.nama_kafe }}</strong></td>
             <td>{{ row.sub_kalimat }}</td>
             <td><code class="excel-code-cell">{{ row.teks_preprocessed }}</code></td>
-            <td><span class="tag">{{ row.aspek|replace("_", " ")|title }}</span></td>
+            <td><span class="tag">{{ row.aspek|format_aspek }}</span></td>
             <td><span class="class-dot class-{{ row.sentimen }}">{{ row.sentimen|title }}</span></td>
             <td>
               <span class="class-dot class-{{ row.prediksi_mnb }}">{{ row.prediksi_mnb|title }}</span>

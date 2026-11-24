@@ -38,12 +38,12 @@ def index():
     elif not is_process_active():
         active_name = current_state.get('dataset_name')
         if not active_name or (wf.get_dataset_path(active_name) is None and active_name not in PROTECTED_DATASETS):
-            fallback_name = PRIMARY_DATASET if primary_path is not None else FIXED_DATASET
+            fallback_name = FIXED_DATASET if fixed_path is not None else PRIMARY_DATASET
             wf.activate_dataset(fallback_name)
             current_state = read_state()
 
     datasets = wf.list_datasets()
-    order_priority = {PRIMARY_DATASET: 0, FIXED_DATASET: 1}
+    order_priority = {FIXED_DATASET: 0, PRIMARY_DATASET: 1}
     datasets.sort(key=lambda item: (order_priority.get(item['name'], 2), item['name']))
 
     return render_template(

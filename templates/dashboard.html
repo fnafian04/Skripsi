@@ -41,7 +41,7 @@
     {% if evaluasi %}
     <div class="metric-line"><span>Nilai F1 seimbang (Macro-F1)</span><strong>{{ '%.4f'|format(evaluasi.f1_macro) }}</strong></div>
     <div class="metric-line"><span>Nilai F1 sesuai bobot (Weighted-F1)</span><strong>{{ '%.4f'|format(evaluasi.f1_weighted) }}</strong></div>
-    <div class="metric-line"><span>Jumlah sub-kalimat uji (20%)</span><strong>{{ "{:,}".format(evaluasi.jumlah_testing|int) }}</strong></div>
+    <div class="metric-line"><span>Jumlah sub-kalimat uji bersih (pasca-saringan)</span><strong>{{ "{:,}".format(evaluasi.jumlah_testing|int) }}</strong></div>
     {% else %}
     <p class="muted">Hasil pengujian belum tersedia.</p>
     <a class="text-link" href="{{ url_for('dataset.index') }}">Buka Upload Dataset →</a>
@@ -70,12 +70,12 @@
       <span class="sinta-pill">{{ "{:,}".format(total_all) }} Label</span>
     </div>
     <div id="sinta-aspect-bar-chart" class="sinta-chart-canvas" style="height: 330px;"></div>
-    <div id="sinta-aspect-bar-fallback" class="sentiment-chart" hidden>
+    <div id="sinta-aspect-bar-fallback" class="sentiment-chart" hidden style="display:none;">
       {% for a in aspek_stats %}
       {% set positive_width = a.positif / a.total * 100 %}
       {% set negative_width = a.negatif / a.total * 100 %}
       <div class="chart-row">
-        <div class="chart-label">{{ a.aspek|replace('_',' ')|title }}</div>
+        <div class="chart-label">{{ a.aspek|format_aspek }}</div>
         <div class="chart-track"><span class="chart-segment chart-positive" style="width:{{ positive_width }}%"></span><span class="chart-segment chart-negative" style="width:{{ negative_width }}%"></span></div>
         <strong class="chart-percent">{{ '%.1f'|format(positive_width) }}%</strong>
       </div>
@@ -133,7 +133,7 @@
         {% for a in aspek_stats %}
         {% set pos_pct = a.positif / a.total * 100 %}
         <tr>
-          <td><strong>{{ a.aspek|replace('_',' ')|title }}</strong></td>
+          <td><strong>{{ a.aspek|format_aspek }}</strong></td>
           <td>{{ "{:,}".format(a.total) }}</td>
           <td class="text-matcha">{{ "{:,}".format(a.positif) }}</td>
           <td class="text-terra">{{ "{:,}".format(a.negatif) }}</td>
@@ -161,7 +161,7 @@
   const stats = [
     {% for a in aspek_stats %}
     {
-      label: {{ (a.aspek|replace('_',' ')|title)|tojson }},
+      label: {{ (a.aspek|format_aspek)|tojson }},
       total: {{ a.total|int }},
       positif: {{ a.positif|int }},
       negatif: {{ a.negatif|int }},
@@ -177,8 +177,17 @@
 
   if (typeof echarts === 'undefined') {
     if (barEl) barEl.style.display = 'none';
-    if (fallbackEl) fallbackEl.hidden = false;
+    if (fallbackEl) {
+      fallbackEl.hidden = false;
+      fallbackEl.style.display = '';
+    }
     return;
+  }
+
+  function wrapAspectLabel(val, twoLines) {
+    if (val === 'Makanan dan Minuman') return 'Makanan dan\nMinuman';
+    if (twoLines && val === 'Fasilitas WFC') return 'Fasilitas\nWFC';
+    return val;
   }
 
   let barChart = null;
@@ -208,11 +217,18 @@
           right: 4,
           textStyle: { color: textColor, fontSize: 12 }
         },
-        grid: { left: 12, right: 14, top: 38, bottom: 8, containLabel: true },
+        grid: { left: 16, right: 16, top: 38, bottom: 10, containLabel: true },
         xAxis: {
           type: 'category',
           data: stats.map(s => s.label),
-          axisLabel: { color: textColor, fontSize: 11, interval: 0, rotate: 12 },
+          axisLabel: {
+            color: textColor,
+            fontSize: 11,
+            interval: 0,
+            rotate: 0,
+            lineHeight: 15,
+            formatter: function (val) { return wrapAspectLabel(val, true); }
+          },
           axisLine: { lineStyle: { color: gridColor } }
         },
         yAxis: {
@@ -243,9 +259,9 @@
       donutChart = echarts.init(donutEl);
       donutChart.setOption({
         title: {
-          text: 'Aspect Strength Level',
+          text: 'Tingkat Kekuatan Aspek',
           left: 'center',
-          top: 6,
+          top: 4,
           textStyle: { color: textColor, fontSize: 15, fontWeight: 700 }
         },
         tooltip: {
@@ -261,7 +277,7 @@
           {
             name: 'Pujian Aspek',
             type: 'pie',
-            radius: isMobile ? ['30%', '50%'] : ['38%', '64%'],
+            radius: isMobile ? ['28%', '46%'] : ['32%', '52%'],
             center: ['50%', '56%'],
             avoidLabelOverlap: true,
             itemStyle: {
@@ -270,12 +286,14 @@
             },
             label: {
               show: true,
+              overflow: 'none',
               formatter: function (p) {
-                return '{lbl|' + p.name + ' : ' + p.value.toLocaleString('id-ID') + '}';
+                return '{lbl|' + wrapAspectLabel(p.name, true) + ': ' + p.value.toLocaleString('id-ID') + '}';
               },
               rich: {
                 lbl: {
-                  fontSize: isMobile ? 10 : 11.5,
+                  fontSize: isMobile ? 10 : 11,
+                  lineHeight: 14,
                   fontWeight: 700,
                   color: 'inherit'
                 }
@@ -283,8 +301,8 @@
             },
             labelLine: {
               show: true,
-              length: isMobile ? 8 : 14,
-              length2: isMobile ? 10 : 18,
+              length: isMobile ? 6 : 10,
+              length2: isMobile ? 8 : 12,
               smooth: 0.15
             },
             data: stats.map(function (s, idx) {

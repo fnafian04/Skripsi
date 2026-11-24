@@ -119,8 +119,8 @@ class SkorAspek(Base):
     jumlah_negatif = Column(UInt, nullable=False, default=0)
     persen_positif = Column(Numeric(5, 2), nullable=False, default=0)
     persen_negatif = Column(Numeric(5, 2), nullable=False, default=0)
-    label_kekuatan = Column(Boolean, nullable=False, default=False)   # >= 60%
-    label_kelemahan = Column(Boolean, nullable=False, default=False)  # >= 30%
+    label_kekuatan = Column(Boolean, nullable=False, default=False)   # N >= 10 dan >= 60% positif
+    label_kelemahan = Column(Boolean, nullable=False, default=False)  # N >= 10 dan <= 40% positif (>= 60% negatif)
     dihitung_pada = Column(DateTime, nullable=False, default=datetime.utcnow,
                            onupdate=datetime.utcnow)
 

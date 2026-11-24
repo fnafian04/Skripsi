@@ -10,6 +10,19 @@ from sqlalchemy import func
 
 bp = Blueprint('rekomendasi', __name__, url_prefix='/rekomendasi')
 
+ASPEK_LABELS = {
+    'makanan_minuman': 'Makanan dan Minuman',
+    'pelayanan': 'Pelayanan',
+    'harga': 'Harga',
+    'suasana': 'Suasana',
+    'fasilitas_wfc': 'Fasilitas WFC',
+    'kebersihan': 'Kebersihan',
+}
+
+
+def _format_aspek(aspek: str) -> str:
+    return ASPEK_LABELS.get(aspek, str(aspek).replace('_', ' ').title())
+
 _REK_TTL = 60.0
 _REK_LOCK = threading.Lock()
 _REK_CACHE: dict = {'key': None, 'ts': 0.0, 'ranked': None, 'total_ulasan': 0}
@@ -58,16 +71,16 @@ def _load_ranked_catalog(state_key):
                 kafe_skor_map[s.kafe_id]['aspek_dict'][s.aspek] = pos_pct
                 kafe_skor_map[s.kafe_id]['breakdown'].append({
                     'aspek': s.aspek,
-                    'label': s.aspek.replace('_', ' ').title(),
+                    'label': _format_aspek(s.aspek),
                     'positif': pos_cnt,
                     'negatif': neg_cnt,
                     'total': tot_cnt,
                     'persen_positif': round(pos_pct, 1),
                 })
                 if s.label_kekuatan:
-                    kafe_skor_map[s.kafe_id]['kekuatan'].append(s.aspek.replace('_', ' ').title())
+                    kafe_skor_map[s.kafe_id]['kekuatan'].append(_format_aspek(s.aspek))
                 if s.label_kelemahan:
-                    kafe_skor_map[s.kafe_id]['kelemahan'].append(s.aspek.replace('_', ' ').title())
+                    kafe_skor_map[s.kafe_id]['kelemahan'].append(_format_aspek(s.aspek))
 
             ranked_list = []
             for k in active_kafes:

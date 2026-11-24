@@ -38,7 +38,7 @@
   <div>
     <span class="eyebrow">Ketepatan hasil pada data uji</span>
     <strong>{{ '%.2f'|format(evaluasi.accuracy * 100) }}<small>%</small></strong>
-    <p class="muted">Dari setiap 100 sub-kalimat uji yang tidak ikut dilatih, sekitar {{ '%.0f'|format(evaluasi.accuracy * 100) }} diprediksi sesuai dengan label pemeriksa.</p>
+    <p class="muted">{% if cm and cm.matrix %}Sebanyak {{ "{:,}".format(cm.matrix[0][0] + cm.matrix[1][1]) }} dari {{ "{:,}".format(evaluasi.jumlah_testing|int) }} sub-kalimat uji bersih ({{ '%.2f'|format(evaluasi.accuracy * 100) }}%) diprediksi sesuai dengan label acuan.{% else %}Akurasi pengujian sebesar {{ '%.2f'|format(evaluasi.accuracy * 100) }}% pada {{ "{:,}".format(evaluasi.jumlah_testing|int) }} sub-kalimat uji bersih.{% endif %}</p>
   </div>
   <div class="result-stats">
     <div>
@@ -189,10 +189,19 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Ulasan tidak dapat diproses.');
+        const aspectLabels = {
+          makanan_minuman: 'Makanan dan Minuman',
+          pelayanan: 'Pelayanan',
+          harga: 'Harga',
+          suasana: 'Suasana',
+          fasilitas_wfc: 'Fasilitas WFC',
+          kebersihan: 'Kebersihan'
+        };
         body.textContent = '';
         data.predictions.forEach(function (item) {
           const row = document.createElement('tr');
-          [item.sub_kalimat, item.aspek.replaceAll('_', ' ')].forEach(function (value) {
+          const aspekText = aspectLabels[item.aspek] || item.aspek.replaceAll('_', ' ');
+          [item.sub_kalimat, aspekText].forEach(function (value) {
             const cell = document.createElement('td');
             cell.textContent = value;
             row.appendChild(cell);

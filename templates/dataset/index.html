@@ -162,7 +162,7 @@
     <div class="progress-fill" id="progress-fill" style="width:{{ state.percent or 0 }}%"></div>
   </div>
   <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-    <p class="hint" style="margin: 0;">Setiap tahapan diberi jeda visual 1 detik agar alur pemrosesan dapat diikuti secara langsung.</p>
+    <p class="hint" style="margin: 0;">Setiap tahapan checkpoint diberi jeda visual 1 detik sebagai penanda progres antarmuka pengguna.</p>
     <form method="post" action="{{ url_for('dataset.reset_status') }}" id="unlock-form" style="margin: 0; {% if state.status not in ['gagal'] and not state.error %}display: none;{% endif %}">
       <button type="submit" class="btn-sm btn-outline" style="border-color: #ef4444; color: #dc2626;" title="Buka kunci status jika proses macet">Buka Kunci / Reset Status</button>
     </form>

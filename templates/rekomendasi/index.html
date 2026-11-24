@@ -79,31 +79,33 @@
         {
           name: 'Pujian Aspek',
           type: 'pie',
-          radius: ['36%', '58%'],
+          radius: ['28%', '46%'],
           center: ['50%', '52%'],
           avoidLabelOverlap: true,
           itemStyle: { borderColor: ringBorder, borderWidth: 1.5 },
           label: {
             show: true,
+            overflow: 'none',
+            lineHeight: 12,
             formatter: function (p) {
               const shortNames = {
-                'Makanan Minuman': 'Makanan',
-                'Fasilitas Wfc': 'WFC',
-                'Pelayanan': 'Layanan',
-                'Kebersihan': 'Bersih',
+                'Makanan dan Minuman': 'Makanan &\nMinuman',
+                'Fasilitas WFC': 'Fasilitas\nWFC',
+                'Pelayanan': 'Pelayanan',
+                'Kebersihan': 'Kebersihan',
                 'Suasana': 'Suasana',
                 'Harga': 'Harga'
               };
               const shortLabel = shortNames[p.name] || p.name;
-              return shortLabel + ' : ' + p.value;
+              return shortLabel + ': ' + p.value;
             },
-            fontSize: 10,
+            fontSize: 9.5,
             fontWeight: 700
           },
           labelLine: {
             show: true,
-            length: 8,
-            length2: 10,
+            length: 6,
+            length2: 8,
             smooth: 0.15
           },
           data: positiveItems.map(function (it, idx) {

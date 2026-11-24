@@ -74,7 +74,7 @@ _RUNTIME_VECTORIZER = None
 def _migrate_datasets_once():
     """Pindahkan berkas CSV lama dari uploads_tmp langsung ke uploads_tmp/datasets/ jika belum ada."""
     try:
-        for name in ('dataset_semprog.csv',):
+        for name in ('dataset_Nov_preprocessed.csv', 'dataset_semprog.csv'):
             src = UPLOAD / name
             dst = DATASETS_DIR / name
             if src.is_file():
@@ -369,6 +369,22 @@ def _get_cafe_upsert_sql():
         """)
 
 
+def _clear_pipeline_tables(conn, include_eval: bool = False) -> None:
+    """Bersihkan tabel hasil pipeline secara cepat tanpa memicu statement timeout FK scan."""
+    if conn.dialect.name == 'postgresql':
+        conn.execute(text('SET LOCAL statement_timeout = 0'))
+        tables = 'label_sentimen, skor_aspek, ulasan'
+        if include_eval:
+            tables += ', evaluasi_model'
+        conn.execute(text(f'TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE'))
+    else:
+        conn.execute(text('DELETE FROM label_sentimen'))
+        conn.execute(text('DELETE FROM skor_aspek'))
+        conn.execute(text('DELETE FROM ulasan'))
+        if include_eval:
+            conn.execute(text('DELETE FROM evaluasi_model'))
+
+
 def _get_skor_aspek_sql(include_netral: bool = True):
     """Query agregasi skor aspek per kafe kompatibel ANSI SQL (PostgreSQL & MySQL)."""
     netral_expr = "SUM(CASE WHEN sentimen='netral' THEN 1 ELSE 0 END)" if include_netral else "0"
@@ -381,8 +397,8 @@ def _get_skor_aspek_sql(include_netral: bool = True):
               SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END),
               ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2),
               ROUND(100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*), 2),
-              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*)) >= 60 THEN TRUE ELSE FALSE END,
-              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*)) >= 30 THEN TRUE ELSE FALSE END
+              CASE WHEN COUNT(*) >= 10 AND ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2) >= 60 THEN TRUE ELSE FALSE END,
+              CASE WHEN COUNT(*) >= 10 AND ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2) <= 40 THEN TRUE ELSE FALSE END
             FROM label_sentimen GROUP BY kafe_id, aspek
         """)
 
@@ -430,9 +446,7 @@ def _store_preprocessed_labels(labels: pd.DataFrame) -> tuple[int, int, int]:
         conn.execute(_get_cafe_upsert_sql(), cafe_rows)
 
         ids = {p: int(i) for p, i in conn.execute(text('SELECT place_id, id FROM kafe')).fetchall()}
-        conn.execute(text('DELETE FROM label_sentimen'))
-        conn.execute(text('DELETE FROM skor_aspek'))
-        conn.execute(text('DELETE FROM ulasan'))
+        _clear_pipeline_tables(conn, include_eval=False)
 
         review_rows = []
         for _, r in df.drop_duplicates(['placeId', 'review_id']).iterrows():
@@ -515,9 +529,7 @@ def _store_labels(raw: pd.DataFrame, labels: pd.DataFrame, user_id=None) -> tupl
         ids = {p: int(i) for p, i in conn.execute(text('SELECT place_id, id FROM kafe')).fetchall()}
 
         # Hapus ulasan dan label dataset lama di database sebelum mengisi dataset yang baru aktif
-        conn.execute(text('DELETE FROM label_sentimen'))
-        conn.execute(text('DELETE FROM skor_aspek'))
-        conn.execute(text('DELETE FROM ulasan'))
+        _clear_pipeline_tables(conn, include_eval=False)
 
         # Simpan ulasan mentah
         review = []
@@ -1030,10 +1042,7 @@ def clear_pipeline_database() -> None:
     _RUNTIME_MODEL = None
     _RUNTIME_VECTORIZER = None
     with engine.begin() as conn:
-        conn.execute(text('DELETE FROM label_sentimen'))
-        conn.execute(text('DELETE FROM skor_aspek'))
-        conn.execute(text('DELETE FROM ulasan'))
-        conn.execute(text('DELETE FROM evaluasi_model'))
+        _clear_pipeline_tables(conn, include_eval=True)
 
     if CACHE.exists():
         CACHE.unlink(missing_ok=True)

@@ -137,8 +137,8 @@ def run_import(filepath: str, user_id: int | None = None, progress=None) -> dict
               SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END),
               ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2),
               ROUND(100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*), 2),
-              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*)) >= 60 THEN TRUE ELSE FALSE END,
-              CASE WHEN (100.0 * SUM(CASE WHEN sentimen='negatif' THEN 1 ELSE 0 END) / COUNT(*)) >= 30 THEN TRUE ELSE FALSE END
+              CASE WHEN COUNT(*) >= 10 AND ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2) >= 60 THEN TRUE ELSE FALSE END,
+              CASE WHEN COUNT(*) >= 10 AND ROUND(100.0 * SUM(CASE WHEN sentimen='positif' THEN 1 ELSE 0 END) / COUNT(*), 2) <= 40 THEN TRUE ELSE FALSE END
             FROM label_sentimen GROUP BY kafe_id,aspek
         """))
 
